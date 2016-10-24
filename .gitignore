@@ -21,3 +21,8 @@ project/plugins/project/
 .ensime
 
 .idea/workspace.xml
+
+
+src/main/resources/test.zip
+src/main/resources/train.zip
+src/main/resources/validation.zip
