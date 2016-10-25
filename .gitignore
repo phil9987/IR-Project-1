@@ -75,3 +75,6 @@ fabric.properties
 .idea/libraries
 .idea/modules.xml #actually not sure about this one
 .idea/scala_compiler.xml
+
+.idea
+project/target/
