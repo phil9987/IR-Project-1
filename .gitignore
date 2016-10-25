@@ -21,6 +21,7 @@ project/plugins/project/
 .ensime
 
 .idea/workspace.xml
+.idea/misc.xml
 
 
 src/main/resources/test.zip
