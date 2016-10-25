@@ -21,9 +21,7 @@ project/plugins/project/
 .ensime
 
 
-src/main/resources/test.zip
-src/main/resources/train.zip
-src/main/resources/validation.zip
+src/main/resources/data/
 
 # Github default Jetbrains
 # Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio and Webstorm
