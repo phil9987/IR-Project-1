@@ -703,9 +703,9 @@
 [debug] 	[NOT REQUIRED] org.scala-sbt#test-agent;0.13.8!test-agent.jar
 [debug] 	[NOT REQUIRED] org.scala-sbt#test-interface;1.0!test-interface.jar
 [debug] 	[NOT REQUIRED] org.scala-sbt#apply-macro;0.13.8!apply-macro.jar
-[debug] :: resolution report :: resolve 857ms :: artifacts dl 35ms
+[debug] :: resolution report :: resolve 925ms :: artifacts dl 45ms
 [debug] 	report for default#ir-project-1$sbt_2.10;1.0 default produced in /Users/marc/IdeaProjects/IR-Project-1/target/resolution-cache/reports/default-ir-project-1$sbt_2.10-default.xml
-[debug] 	resolve done (857ms resolve - 35ms download)
+[debug] 	resolve done (925ms resolve - 45ms download)
 [debug] Using inline dependencies specified in Scala.
 [debug] :: resolving dependencies :: default#ir-project-1$sources_2.10;1.0
 [debug] 	confs: [default]
@@ -1069,6 +1069,6 @@
 [debug] 	[NOT REQUIRED] org.scala-sbt#precompiled-2_8_2;0.13.8!precompiled-2_8_2.jar(src)
 [debug] 	[NOT REQUIRED] org.scala-sbt#precompiled-2_9_2;0.13.8!precompiled-2_9_2.jar(src)
 [debug] 	[NOT REQUIRED] org.scala-sbt#precompiled-2_9_3;0.13.8!precompiled-2_9_3.jar(src)
-[debug] :: resolution report :: resolve 157ms :: artifacts dl 37ms
+[debug] :: resolution report :: resolve 244ms :: artifacts dl 34ms
 [debug] 	report for default#ir-project-1$sources_2.10;1.0 default produced in /Users/marc/IdeaProjects/IR-Project-1/target/resolution-cache/reports/default-ir-project-1$sources_2.10-default.xml
-[debug] 	resolve done (157ms resolve - 37ms download)
+[debug] 	resolve done (244ms resolve - 34ms download)
