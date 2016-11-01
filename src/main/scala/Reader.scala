@@ -15,7 +15,7 @@ import ch.ethz.dal.tinyir.processing.XMLDocument
   * @param x Bag of Words
   * @param y Lables
   */
-case class DataPoint(x: SparseVector[Int], y: Set[String])
+case class DataPoint(x: SparseVector[Double], y: Set[String])
 
 /**
   * Reads all samples from the trainin gdata and form a dictionary from that.
@@ -66,7 +66,7 @@ class Reader(minOccurrence: Int = 2,
     */
   def toBagOfWords(input: Stream[XMLDocument]): Stream[DataPoint] =
     input.map(doc => {
-      val v = new VectorBuilder[Int](outLength)
+      val v = new VectorBuilder[Double](outLength)
       doc.tokens.groupBy(identity).mapValues(_.size).toList
         .map { case (key, count) => if (dictionary.contains(key)) (dictionary(key), count) else (-1, 0) }
         .filter(_._1 >= 0).sortBy(_._1)
