@@ -22,8 +22,8 @@ case class DataPoint(x: SparseVector[Double], y: Set[String])
   * Provides methods to read other data sets as streams of bag-of-words-vectors
   * (based on the trained dictionary)
   *
-  * @param minOccurance     Minimum number of documents that a word must be included in.
-  * @param maxOccuranceRate Words that are in more than maxOccuranceRate*nrDocuments documents
+  * @param minOccurrence     Minimum number of documents that a word must be included in.
+  * @param maxOccurrenceRate Words that are in more than maxOccuranceRate*nrDocuments documents
   *                         are discared. Should be in (0, 1].
   * @param bias             Indicates wheter to include an extra 1 in bag-of-words vectors
   */
@@ -34,6 +34,7 @@ class Reader(minOccurrence: Int = 2,
   private val wordCounts = scala.collection.mutable.HashMap[String, Int]()
   private val docCount = r.stream.length
   val codes = scala.collection.mutable.Set[String]()
+
 
   //count words in files
   for (doc <- r.stream) {

@@ -3,8 +3,7 @@
   */
 
 import breeze.linalg.{SparseVector, Vector, DenseVector}
-
-//case class DataPoint(x: Vector[Double], y: Vector[Double])
+import java.io._
 
 
 object SVM {
@@ -23,25 +22,49 @@ object SVM {
 
   def main(args: Array[String]): Unit = {
 
+    println("Reading Data")
     val r = new Reader()
-    val codes = r.codes
 
-
-    val currentCode = codes.head
-    var theta = DenseVector.fill[Double](r.reducedDictionarySize + 1)(1.0)
+    //train SVM
+    println("Training SVM")
+    val codes = scala.collection.immutable.Set[String](r.codes.toList: _*)
+    var thetas = codes.map((_, DenseVector.fill[Double](r.reducedDictionarySize + 1)(1.0))).toMap.par
     val lambda = 1
     var step = 1
-    for (dp <- r.toBagOfWords("train")) {
-      theta = updateStep(theta, dp.x, if (dp.y.contains(currentCode)) 1.0 else -1.0, lambda, step)
+    for (dp <- r.toBagOfWords("train").take(10)) {
+      thetas = thetas.map { case (code, theta) => code -> updateStep(theta, dp.x, if (dp.y.contains(code)) 1.0
+      else
+        -1.0,
+                                                                     lambda,
+                                                                     step)
+                          }
       step = step + 1
     }
 
-    val validationResult = r.toBagOfWords("validation").map(dp => (Math.signum(theta.dot(dp.x)),
-      if (dp.y.contains(currentCode)) 1.0 else -1.0 ))
-    val validationResultCount = validationResult.map(x => x._1 * x._2).groupBy(x => x).mapValues(_.size)
-    println(validationResultCount)
-    val p = validationResultCount(1.0) * 1.0 / (validationResultCount(-1.0) + validationResultCount(1.0))
-    println(p)
+    //save thetas
+    println("Done training. Saving found data.")
+    val pw = new PrintWriter(new File("svm.csv"))
+    thetas.map { case (code, theta) => theta.toArray.mkString(code + "\t", "\t", "\n") }.seq.foreach(pw.write(_))
+    pw.close
+
+    //run on validation data
+    println("Running verification")
+    val validationResult = r.toBagOfWords("validation").map(dp =>
+                                                              (thetas.map { case (code, theta) => (Math.signum
+                                                              (theta.dot(dp.x)), code)
+                                                                          }.filter(_._1 > 0).map(_._2)
+                                                                .toSet, dp.y)).toList
+
+    //compute precision, recall, f1 and averaged f1
+    println("Computing score")
+    val validationPrecisionRecall = validationResult.map { case (actual, expected) =>
+      (actual.intersect(expected).size.toDouble / (actual.size + scala.Double.MinPositiveValue),
+        actual.intersect(expected).size.toDouble / (expected.size + scala.Double.MinPositiveValue))
+                                                         }
+    val validationF1 = validationPrecisionRecall
+      .map { case (precision, recall) => 2 * precision * recall / (precision + recall + scala.Double.MinPositiveValue) }
+    println(validationF1.sum / validationF1.length)
+
 
   }
 
