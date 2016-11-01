@@ -33,10 +33,12 @@ class Reader(minOccurrence: Int = 2,
   private val r = new ReutersRCVStream(new File("./src/main/resources/data/train").getCanonicalPath, ".zip")
   private val wordCounts = scala.collection.mutable.HashMap[String, Int]()
   private val docCount = r.stream.length
+  val codes = scala.collection.mutable.Set[String]()
 
   //count words in files
   for (doc <- r.stream) {
     doc.tokens.distinct.foreach(x => wordCounts(x) = 1 + wordCounts.getOrElse(x, 0))
+    doc.codes.foreach(codes += _)
   }
 
   private val acceptableCount = maxOccurrenceRate * docCount

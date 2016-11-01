@@ -15,6 +15,9 @@ object Main{
     println(r.toBagOfWords("test").take(2))
     println(r.toBagOfWords("validation").take(2))
 
+    print("The found codes are: ")
+    println(r.codes)
+
 //    var testCorpus = new ReutersCorpusIterator("test")
 //    for( i <- 1 until 10){
 //      val doc : ReutersRCVParse = testCorpus.next()
