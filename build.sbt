@@ -31,3 +31,6 @@ resolvers ++= Seq(
 
 // or 2.11.5
 scalaVersion := "2.10.4"
+
+//get all the HEAP
+javaOptions += "-Xmx20G"
