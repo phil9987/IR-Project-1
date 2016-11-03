@@ -18,7 +18,7 @@ import ch.ethz.dal.tinyir.processing.XMLDocument
 case class DataPoint(x: SparseVector[Double], y: Set[String])
 
 /**
-  * Reads all samples from the trainin gdata and form a dictionary from that.
+  * Reads all samples from the training data and forms a dictionary from that.
   * Provides methods to read other data sets as streams of bag-of-words-vectors
   * (based on the trained dictionary)
   *
@@ -75,5 +75,13 @@ class Reader(minOccurrence: Int = 2,
       if (bias) v.add(reducedDictionarySize, 1) //bias
       DataPoint(v.toSparseVector(true, true), doc.codes)
     })
+
+  def getProbabilityOfCode(code: String): Double = {
+    val trainStream = toBagOfWords("train")
+    val numDocs = trainStream.filter(_.y(code)).length
+    //println("number of documents which contain code " + code + " : " + numDocs)
+    //println("total number of documents in training corpus: " + docCount)
+    numDocs.toDouble / docCount.toDouble
+  }
 
 }
