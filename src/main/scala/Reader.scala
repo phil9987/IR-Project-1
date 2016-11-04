@@ -1,4 +1,5 @@
 import java.io.File
+//import scala.util.{Try, Success, Failure
 
 import breeze.linalg.{SparseVector, Vector, VectorBuilder}
 import ch.ethz.dal.tinyir.io.ReutersRCVStream
@@ -34,12 +35,14 @@ class Reader(minOccurrence: Int = 2,
   private val wordCounts = scala.collection.mutable.HashMap[String, Int]()
   private val docCount = r.stream.length
   val codes = scala.collection.mutable.Set[String]()
+  private val numDocsPerCode = scala.collection.mutable.HashMap[String, Int]()
 
 
   //count words in files
   for (doc <- r.stream) {
     doc.tokens.distinct.foreach(x => wordCounts(x) = 1 + wordCounts.getOrElse(x, 0))
     doc.codes.foreach(codes += _)
+    doc.codes.foreach(x => numDocsPerCode(x) = 1 + numDocsPerCode.getOrElse(x,0))
   }
 
   private val acceptableCount = maxOccurrenceRate * docCount
@@ -76,12 +79,15 @@ class Reader(minOccurrence: Int = 2,
       DataPoint(v.toSparseVector(true, true), doc.codes)
     })
 
+  /**
+    * Calculate probability of a code (#docs which contain code / total nb of docs)
+   */
   def getProbabilityOfCode(code: String): Double = {
-    val trainStream = toBagOfWords("train")
-    val numDocs = trainStream.filter(_.y(code)).length
-    //println("number of documents which contain code " + code + " : " + numDocs)
-    //println("total number of documents in training corpus: " + docCount)
-    numDocs.toDouble / docCount.toDouble
+    val numDocs = numDocsPerCode.get(code)
+    numDocs match{
+      case Some(numDocs) => numDocs.toDouble / docCount.toDouble
+      case None => 0.0
+    }
   }
 
 }
