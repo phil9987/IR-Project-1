@@ -3,24 +3,23 @@ import breeze.linalg.{SparseVector, Vector, DenseVector}
 
 object LogisticRegression{
 
-    val ITERATIONS = 1
-
   def main(args: Array[String]): Unit = {
     train()
   }
 
+
     def train(): Unit = {
-      println("Creating reader object..")
+      println(" LOGREG : Creating reader object..")
 
-      val reader = new Reader()
+      val reader = new Reader(minOccurrence = 200, maxOccurrenceRate = 0.01)
+      //val documents = reader.toBagOfWords("train")
+      val documents = new DataPointIterator("train", reader)
 
-      println("Creating document iterator for training set..")
-      val documents = reader.toBagOfWords("train")
+      println(" LOGREG : Creating codes and thetas ")
+      val codes = Set[String](reader.codes.toList: _*)
+      var thetas = codes.map((_, DenseVector.fill[Double](reader.reducedDictionarySize + 1)(0.0))).toMap.par
 
-      val codes = scala.collection.immutable.Set[String](reader.codes.toList: _*)
-      var thetas = codes.map((_, DenseVector.fill[Double](reader.reducedDictionarySize + 1)(0.0))).toMap // .par
-
-      var learning_rate = 1
+      var learning_rate = 1.0
 
       def logistic(x: Double): Double = {
         1.0 / (1.0 + Math.exp(-x))
@@ -36,18 +35,25 @@ object LogisticRegression{
         }
       }
 
-      println("Starting learning...")
+      println(" LOGREG : Starting learning...")
       var docNr = 0
-      for (iteration <- 1 to ITERATIONS) {
-        docNr = 0
-        for (doc <- documents) {
-          docNr += 1
-          println(s"---- Updating for doc number : $docNr")
-          thetas.map {
-            case (code, theta) => code -> update(theta, code, doc)
-          }
+      for (doc <- documents) {
+        docNr += 1
+        println(s"LOGREG --> Updating for doc number : $docNr")
+        thetas = thetas.map {
+          case (code, theta) => code -> update(theta, code, doc)
         }
-
+        learning_rate = 1.0 / docNr
       }
+
+      println(thetas)
+      println("Example theta : FASHION")
+      var index : Int = 0;
+      reader.dictionary.foreach {
+        (t2) => println(t2._1 + "  : " + thetas("GFAS")(index))
+          index += 1
+      }
+
+
     }
 }

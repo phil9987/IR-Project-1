@@ -3,15 +3,14 @@ import java.io.FileNotFoundException
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 import scala.collection.JavaConversions.enumerationAsScalaIterator
-import scala.collection.mutable.Queue
 import scala.util.Success
 import scala.util.Try
 import ch.ethz.dal.tinyir.processing._
+import breeze.linalg.{SparseVector, Vector, VectorBuilder}
 
+class DataPointIterator(corpusType : String, linkedReader : Reader, bias : Boolean = true) extends Iterator[DataPoint] {
 
-class ReutersCorpusIterator(corpusType : String) extends Iterator[ReutersRCVParse] {
-
-  val resourceFolder = getClass.getResource("/data/").getPath
+  val resourceFolder = getClass.getResource("/data/" + corpusType + "/").getPath
   println(s"loaded resource folder : $resourceFolder")
   // we will use this to iterate over ZIP entries
   var xmlIterator :  Iterator[ZipEntry] = _
@@ -34,7 +33,7 @@ class ReutersCorpusIterator(corpusType : String) extends Iterator[ReutersRCVPars
     false
   }
 
-  def next() : ReutersRCVParse = {
+  def next() : DataPoint = {
     if(!hasNext)
       throw new NoSuchElementException()
 
@@ -43,6 +42,13 @@ class ReutersCorpusIterator(corpusType : String) extends Iterator[ReutersRCVPars
     val is = currentZip.getInputStream(entry)
     val xml = new ReutersRCVParse(is)
     is.close()
-    xml
+
+    val v = new VectorBuilder[Double](linkedReader.outLength)
+    xml.tokens.groupBy(identity).mapValues(_.size).toList
+      .map { case (key, count) => if (linkedReader.dictionary.contains(key)) (linkedReader.dictionary(key), count) else (-1, 0) }
+      .filter(_._1 >= 0).sortBy(_._1)
+      .foreach { case (index, count) => v.add(index, count) }
+    if (bias) v.add(linkedReader.reducedDictionarySize, 1) //bias
+    DataPoint(v.toSparseVector(true, true), xml.codes)
   }
 }

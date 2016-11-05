@@ -58,7 +58,7 @@ class Reader(minOccurrence: Int = 2,
   val reducedDictionarySize = dictionary.size
   println(s" --- READER :     => reduced dictionary size from $originalDictionarySize to $reducedDictionarySize")
 
-  private val outLength = reducedDictionarySize + (if (bias) 1 else 0)
+  val outLength = reducedDictionarySize + (if (bias) 1 else 0)
 
   /**
     * Load the datapoints for a given collection.
@@ -66,7 +66,6 @@ class Reader(minOccurrence: Int = 2,
     * @return Stream of datapoints.
     */
   def toBagOfWords(collectionName: String): Stream[DataPoint] = {
-    println(s" --- READER : Creating bag of words for collection $collectionName")
     toBagOfWords(new ReutersRCVStream(
       new File("./src/main/resources/data/" + collectionName).getCanonicalPath, ".zip").stream)
   }
