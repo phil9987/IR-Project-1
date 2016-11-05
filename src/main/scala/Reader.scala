@@ -31,13 +31,17 @@ case class DataPoint(x: SparseVector[Double], y: Set[String])
 class Reader(minOccurrence: Int = 2,
              maxOccurrenceRate: Double = 0.2,
              bias: Boolean = true) {
+  println(" --- READER : Initializing Stream.")
   private val r = new ReutersRCVStream(new File("./src/main/resources/data/train").getCanonicalPath, ".zip")
   private val wordCounts = scala.collection.mutable.HashMap[String, Int]()
-  private val docCount = r.stream.length
+  println(" --- READER : Counting total number of documents.")
+  private val docCount = r.length
+  println(s" --- READER :    => got $docCount")
   val codes = scala.collection.mutable.Set[String]()
   private val numDocsPerCode = scala.collection.mutable.HashMap[String, Int]()
 
 
+  println(" --- READER : Counting words in file.. ")
   //count words in files
   for (doc <- r.stream) {
     doc.tokens.distinct.foreach(x => wordCounts(x) = 1 + wordCounts.getOrElse(x, 0))
@@ -45,13 +49,15 @@ class Reader(minOccurrence: Int = 2,
     doc.codes.foreach(x => numDocsPerCode(x) = 1 + numDocsPerCode.getOrElse(x,0))
   }
 
+  println(" --- READER : Filtering out words. ")
   private val acceptableCount = maxOccurrenceRate * docCount
   val originalDictionarySize = wordCounts.size
   //compute dictionary (remove unusable words)
   val dictionary = wordCounts.filter(x => x._2 < acceptableCount && x._2 >= minOccurrence)
     .keys.toList.sorted.zipWithIndex.toMap
-
   val reducedDictionarySize = dictionary.size
+  println(s" --- READER :     => reduced dictionary size from $originalDictionarySize to $reducedDictionarySize")
+
   private val outLength = reducedDictionarySize + (if (bias) 1 else 0)
 
   /**
@@ -59,10 +65,11 @@ class Reader(minOccurrence: Int = 2,
     * @param collectionName The name of the collection. Either "test", "train" or "validation"
     * @return Stream of datapoints.
     */
-  def toBagOfWords(collectionName: String): Stream[DataPoint] =
+  def toBagOfWords(collectionName: String): Stream[DataPoint] = {
+    println(s" --- READER : Creating bag of words for collection $collectionName")
     toBagOfWords(new ReutersRCVStream(
       new File("./src/main/resources/data/" + collectionName).getCanonicalPath, ".zip").stream)
-
+  }
   /**
     * Load the datapoints for a given stream of documents.
     * @param input The documents.
