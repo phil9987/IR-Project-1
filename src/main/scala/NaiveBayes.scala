@@ -13,9 +13,7 @@ object NaiveBayes{
 
   def main(args: Array[String]): Unit = {
     println("Reading Data...")
-    val r = new Reader(2, 0.2, false)   //create reader with no bias
-    println("Read %d words from training set. Reduced to %d words.".format(r.originalDictionarySize, r
-      .reducedDictionarySize))
+    val r = new Reader(0, 1, false)   //create reader with no bias
     println("Training Naive Bayes Model...")
     val codes = scala.collection.immutable.Set[String](r.codes.toList: _*)
     var thetas = codes.map((_, DenseVector.fill[Double](r.reducedDictionarySize + 1)(1.0))).toMap.par
