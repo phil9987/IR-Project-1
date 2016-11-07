@@ -23,11 +23,13 @@ object NaiveBayes{
     */
   def getPwc(theta: DenseVector[Double], alpha: Double, code: String, bowStream: Stream[DataPoint], vocabSize: Double):
       DenseVector[Double] = {
-    if (bowStream.isEmpty) log(theta) - log(sum(theta) + alpha*vocabSize)
+    if (bowStream.isEmpty) {
+      log(theta) - log(sum(theta) + alpha*vocabSize)
+    }
     else{
       val doc = bowStream.head
       if(doc.y contains code){
-        getPwc(theta + doc.x, alpha, code, bowStream.tail,vocabSize)
+        getPwc(theta + doc.x, alpha, code, bowStream.tail, vocabSize)
       }else{
         getPwc(theta, alpha, code, bowStream.tail, vocabSize)
       }
@@ -39,16 +41,14 @@ object NaiveBayes{
     val r = new Reader(2, 0.7, false)   //create reader with no bias
     println(" --- NAIVE BAYES : Training Model...")
     val codes = scala.collection.immutable.Set[String](r.codes.toList: _*)
-    var thetas = codes.map((_, DenseVector.ones[Double](r.reducedDictionarySize))).toMap.par
+    var thetas = codes.map((_, DenseVector.ones[Double](r.reducedDictionarySize)))
     //println(codes)
     //println(" --- NAIVE BAYES : P(CCAT) = " + r.getProbabilityOfCode("CCAT"))
-    val theta = SparseVector.zeros[Double](r.reducedDictionarySize)
-    val wordcounts = r.getWordCountVector()
     //println(wordcounts)
     //val pwc = getPwc(theta, 1.0, "CCAT", r.toBagOfWords("train"),wordcounts)
     //println(" --- NAIVE BAYES : Pwc calculated for CCAT")
     //println(pwc)
-    println(" --- NAIVE BAYES : Calculating P(w|c) all codes in the training set...")
+    println(" --- NAIVE BAYES : Calculating P(w|c) of every code in the training set...")
     thetas = thetas.map { case (code, theta) => code -> getPwc(theta = theta,
                                                                 alpha = 1.0,
                                                                 code = code,
@@ -59,8 +59,8 @@ object NaiveBayes{
 
     //run on validation data
     println(" --- NAIVE BAYES : Running verification")
-    println(thetas.map { case (code, theta) =>
-      (log(theta), log(r.getProbabilityOfCode(code)))})
+    //println(thetas.map { case (code, theta) =>
+    //  ((theta), log(r.getProbabilityOfCode(code)))})
     val validationResult = r.toBagOfWords("validation").map(dp =>
       (thetas.map { case (code, theta) =>
         (log(r.getProbabilityOfCode(code)) + dp.x.dot(log(theta)), code)}
@@ -68,6 +68,16 @@ object NaiveBayes{
           .map(_._2)
         .toSet, dp.y)).toList
     println(validationResult)
+
+    //compute precision, recall, f1 and averaged f1
+    println(" --- NAIVE BAYES : Computing scores")
+    val validationPrecisionRecall = validationResult.map { case (actual, expected) =>
+      (actual.intersect(expected).size.toDouble / (actual.size + scala.Double.MinPositiveValue),
+        actual.intersect(expected).size.toDouble / (expected.size + scala.Double.MinPositiveValue))
+    }
+    val validationF1 = validationPrecisionRecall
+      .map { case (precision, recall) => 2 * precision * recall / (precision + recall + scala.Double.MinPositiveValue) }
+    println(validationF1.sum / validationF1.length)
     /*val resourceFolder = getClass.getResource("/data/").getPath
     val path = resourceFolder
     println(path)
