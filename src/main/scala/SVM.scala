@@ -43,7 +43,7 @@ object SVM {
 
     //save thetas
     println("Done training. Saving found data.")
-    val pw = new PrintWriter(new File("svm.csv"))
+    val pw = new PrintWriter(new File("bayes.csv"))
     thetas.map { case (code, theta) => theta.toArray.mkString(code + "\t", "\t", "\n") }.seq.foreach(pw.write(_))
     pw.close
 
