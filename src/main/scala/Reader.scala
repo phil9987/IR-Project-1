@@ -37,7 +37,7 @@ class Reader(minOccurrence: Int = 2,
   println(" --- READER : Counting total number of documents.")
   private val docCount = r.length
   println(s" --- READER :    => got $docCount")
-  val codes = scala.collection.mutable.Set[String]()
+  var codes = scala.collection.mutable.Set[String]()
   private val numDocsPerCode = scala.collection.mutable.HashMap[String, Int]()
 
 
@@ -49,15 +49,17 @@ class Reader(minOccurrence: Int = 2,
     doc.codes.foreach(x => numDocsPerCode(x) = 1 + numDocsPerCode.getOrElse(x,0))
   }
 
+  codes = codes.intersect(possibleCodes.topicCodes)
+
   println(" --- READER : Filtering out words. ")
   private val acceptableCount = maxOccurrenceRate * docCount
   val originalDictionarySize = wordCounts.size
   //compute dictionary (remove unusable words)
-  val dictionary = wordCounts.filter(x => x._2 < acceptableCount && x._2 >= minOccurrence)
+  val dictionary = wordCounts.filter(x => x._2 < acceptableCount && x._2 >= minOccurrence )
     .keys.toList.sorted.zipWithIndex.toMap
   val reducedDictionarySize = dictionary.size
   println(s" --- READER :     => reduced dictionary size from $originalDictionarySize to $reducedDictionarySize")
-
+  println(s" --- READER :     => Total number of considered codes : ${codes.size}")
   val outLength = reducedDictionarySize + (if (bias) 1 else 0)
 
   /**
