@@ -2,7 +2,8 @@
   * Created by Philip on 31/10/16.
   */
 
-import breeze.linalg.{Vector, DenseVector}
+import breeze.linalg._
+import breeze.numerics.{log}
 import ch.ethz.dal.tinyir.io.ReutersRCVStream
 import ch.ethz.dal.tinyir.processing.Tokenizer
 
@@ -11,19 +12,62 @@ object NaiveBayes{
   //val numTrain = 500
   //val numTest = 1000
 
+  /**
+    *P(w|c)
+    * @param theta
+    * @param alpha
+    * @param code
+    * @param bowStream
+    * @Param wordCountVector
+    * @return The probability of the code in the training set
+    */
+  def getPwc(theta: DenseVector[Double], alpha: Double, code: String, bowStream: Stream[DataPoint], wordCountVector: SparseVector[Double]):
+      SparseVector[Double] = {
+    if (bowStream.isEmpty) theta / (sum(theta) + alpha*sum(wordCountVector))
+    else{
+      val doc = bowStream.head
+      if(doc.y contains code){
+        getPwc(theta + doc.x + (alpha)*DenseVector.ones[Double](theta.length), alpha, code, bowStream.tail,wordCountVector)
+      }else{
+        getPwc(theta, alpha, code, bowStream.tail, wordCountVector)
+      }
+
+    }
+  }
+
   def main(args: Array[String]): Unit = {
-    println("Reading Data...")
-    val r = new Reader(2, 0.2, false)   //create reader with no bias
-    println("Read %d words from training set. Reduced to %d words.".format(r.originalDictionarySize, r
-      .reducedDictionarySize))
-    println("Training Naive Bayes Model...")
+    val r = new Reader(2, 0.7, false)   //create reader with no bias
+    println(" --- NAIVE BAYES : Training Model...")
     val codes = scala.collection.immutable.Set[String](r.codes.toList: _*)
-    var thetas = codes.map((_, DenseVector.fill[Double](r.reducedDictionarySize + 1)(1.0))).toMap.par
-    println("Theta size: " + thetas.size)
+    var thetas = codes.map((_, DenseVector.ones[Double](r.reducedDictionarySize))).toMap.par
+    //println(codes)
+    //println(" --- NAIVE BAYES : P(CCAT) = " + r.getProbabilityOfCode("CCAT"))
+    val theta = DenseVector.zeros[Double](r.reducedDictionarySize)
+    val wordcounts = r.getWordCountVector()
+    //println(wordcounts)
+    //val pwc = getPwc(theta, 1.0, "CCAT", r.toBagOfWords("train"),wordcounts)
+    //println(" --- NAIVE BAYES : Pwc calculated for CCAT")
+    //println(pwc)
+    println(" --- NAIVE BAYES : Calculating P(w|c) all codes in the training set...")
+    thetas = thetas.map { case (code, theta) => code -> getPwc(theta = DenseVector.zeros[Double](r.reducedDictionarySize),
+                                                                alpha = 1.0,
+                                                                code = code,
+                                                                bowStream = r.toBagOfWords("train"),
+                                                                wordCountVector = wordcounts)
+    }
+    //println(thetas)
 
-    println("P(CCAT) = " + r.getProbabilityOfCode("CCAT"))
-
-
+    //run on validation data
+    println(" --- NAIVE BAYES : Running verification")
+    println(thetas.map { case (code, theta) =>
+      (log(theta), log(r.getProbabilityOfCode(code)))})
+    val validationResult = r.toBagOfWords("validation").map(dp =>
+      (thetas.map { case (code, theta) =>
+        (log(r.getProbabilityOfCode(code)) + dp.x.dot(log(theta)), code)}
+          .toList.sortBy(-_._1)
+          .map(_._2)
+        .toSet, dp.y)).toList
+    println(validationResult)
     /*val resourceFolder = getClass.getResource("/data/").getPath
     val path = resourceFolder
     println(path)

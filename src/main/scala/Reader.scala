@@ -1,7 +1,7 @@
 import java.io.File
 //import scala.util.{Try, Success, Failure
 
-import breeze.linalg.{SparseVector, Vector, VectorBuilder}
+import breeze.linalg.{DenseVector, SparseVector, Vector, VectorBuilder}
 import ch.ethz.dal.tinyir.io.ReutersRCVStream
 import ch.ethz.dal.tinyir.processing.XMLDocument
 
@@ -41,7 +41,7 @@ class Reader(minOccurrence: Int = 2,
   private val numDocsPerCode = scala.collection.mutable.HashMap[String, Int]()
 
 
-  println(" --- READER : Counting words in file.. ")
+  println(" --- READER : Counting word- and code-occurences in training corpus...")
   //count words in files
   for (doc <- r.stream) {
     doc.tokens.distinct.foreach(x => wordCounts(x) = 1 + wordCounts.getOrElse(x, 0))
@@ -51,11 +51,12 @@ class Reader(minOccurrence: Int = 2,
 
   codes = codes.intersect(possibleCodes.topicCodes)
 
-  println(" --- READER : Filtering out words. ")
+
+  println(" --- READER : Filtering out words...")
   private val acceptableCount = maxOccurrenceRate * docCount
   val originalDictionarySize = wordCounts.size
   //compute dictionary (remove unusable words)
-  val dictionary = wordCounts.filter(x => x._2 < acceptableCount && x._2 >= minOccurrence )
+  val dictionary = wordCounts.filter(x => x._2 <= acceptableCount && x._2 >= minOccurrence)
     .keys.toList.sorted.zipWithIndex.toMap
   val reducedDictionarySize = dictionary.size
   println(s" --- READER :     => reduced dictionary size from $originalDictionarySize to $reducedDictionarySize")
@@ -88,7 +89,9 @@ class Reader(minOccurrence: Int = 2,
     })
 
   /**
-    * Calculate probability of a code (#docs which contain code / total nb of docs)
+    * Calculates probability of a code (#docs which contain code / total nb of docs)
+    * @param code The code of a class
+    * @return The probability of the code in the training set
    */
   def getProbabilityOfCode(code: String): Double = {
     val numDocs = numDocsPerCode.get(code)
@@ -96,6 +99,13 @@ class Reader(minOccurrence: Int = 2,
       case Some(numDocs) => numDocs.toDouble / docCount.toDouble
       case None => 0.0
     }
+  }
+
+  def getWordCountVector(): SparseVector[Double] ={
+    val v = new VectorBuilder[Double](outLength)
+    wordCounts.toList.map{ case (key,count) => if (dictionary.contains(key)) (dictionary(key), count) else (-1, 0)}
+      .filter(_._1 >= 0).sortBy(_._1).foreach { case (index, count) => v.add(index, count) }
+    v.toSparseVector(true, true)
   }
 
 }
