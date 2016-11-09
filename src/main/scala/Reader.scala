@@ -101,11 +101,4 @@ class Reader(minOccurrence: Int = 2,
     }
   }
 
-  def getWordCountVector(): SparseVector[Double] ={
-    val v = new VectorBuilder[Double](outLength)
-    wordCounts.toList.map{ case (key,count) => if (dictionary.contains(key)) (dictionary(key), count) else (-1, 0)}
-      .filter(_._1 >= 0).sortBy(_._1).foreach { case (index, count) => v.add(index, count) }
-    v.toSparseVector(true, true)
-  }
-
 }
