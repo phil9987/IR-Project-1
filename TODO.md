@@ -1,7 +1,7 @@
 TODO
 ====
 
-For 1 person:
+For 1 person: [Samstag]
 -main schreiben [Tobias]
 -reader: filter für codes [Tobias]
 -report [Marc]
@@ -20,3 +20,4 @@ all:
 -indviduelle parameter: lambda, threshold
 -report: eigenes kapitel schreiben mit plots, etc. [Sonntag Abend]
 -run on test data -> output file
+-implement kernels
