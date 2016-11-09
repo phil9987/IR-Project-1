@@ -1,6 +1,9 @@
 TODO
 ====
 
+Final Meeting: Montag 17:00
+Arbeiten: Sontag ab 11/12:00
+
 For 1 person: [Samstag]
 -main schreiben [Tobias]
 -reader: filter für codes [Tobias]
