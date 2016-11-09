@@ -15,15 +15,16 @@ import scala.io.Source
 object NaiveBayes{
 
   var documentCategoryProbabilities = scala.collection.mutable.HashMap.empty[String,DenseVector[Double]].par
+  val reader = new Reader(10, 0.8, false) //create reader with no bias
 
   /**
-    *P(w|c)
-    * @param theta
+    *
+    * @param wordCounts
     * @param alpha
     * @param code
     * @param bowStream
     * @param vocabSize
-    * @return The probability of the code in the training set
+    * @return
     */
   def calculateWordCategoryProbabilities(wordCounts: DenseVector[Double], alpha: Double, code: String, bowStream: Stream[DataPoint], vocabSize: Double):
       DenseVector[Double] = {
@@ -41,6 +42,10 @@ object NaiveBayes{
     }
   }
 
+  /**
+    *
+    * @param filename
+    */
   def saveDocumentCategoryProbabilitiesToFile(filename:String): Unit ={
     println(" --- NAIVE BAYES : Training done. Saving model...")
     val pw = new PrintWriter(new File(filename))
@@ -48,6 +53,10 @@ object NaiveBayes{
     pw.close
   }
 
+  /**
+    *
+    * @param filename
+    */
   def loadDocumentCategoryProbabilitiesFromFile(filename:String): Unit ={
     println(" --- NAIVE BAYES : Loading saved model from file")
     documentCategoryProbabilities.clear()
@@ -59,21 +68,31 @@ object NaiveBayes{
     }
   }
 
-  def getValidationResult(validationDataStream: Stream[DataPoint], k: Double): List ={
-    validationDataStream.map(dp =>
+
+  /**
+    *
+    * @param k
+    * @return
+    */
+  def getValidationResult(k: Double): List[(Set[String],Set[String])] ={
+    reader.toBagOfWords("validation").map(dp =>
       (documentCategoryProbabilities.map { case (code, wordCategoryProbabilities) =>
-        (log(r.getProbabilityOfCode(code)) + dp.x.dot(wordCategoryProbabilities) / sum(dp.x), code)
+        (log(reader.getProbabilityOfCode(code)) + dp.x.dot(wordCategoryProbabilities) / sum(dp.x), code)
       }
         .toList.sortBy(_._1)
-        .filter(_._1 > -9.5 - (0.1 * k))
+        .filter(_._1 > k)
         .map(_._2)
         .toSet, dp.y)).toList
   }
 
+  /**
+    *
+    * @param args
+    */
   def main(args: Array[String]): Unit = {
-    val r = new Reader(10, 0.8, false) //create reader with no bias
+    val k = -9.9
     println(" --- NAIVE BAYES : Training Model...")
-    /*val codes = r.codes.toList
+    /*val codes = reader.codes.toList
     println(" --- NAIVE BAYES : We will train " + codes.length + " codes")
     codes.foreach(code => documentCategoryProbabilities += code -> DenseVector.ones[Double](r.reducedDictionarySize))
     println(" --- NAIVE BAYES : Calculating P(d|c) for every document d, category c pair...")
@@ -89,28 +108,23 @@ object NaiveBayes{
     }
 
     saveDocumentCategoryProbabilitiesToFile("./src/main/resources/data/model/bayesPar3.csv")
-*/  loadDocumentCategoryProbabilitiesFromFile("./src/main/resources/data/model/bayesPar3.csv")
+*/ loadDocumentCategoryProbabilitiesFromFile("./src/main/resources/data/model/bayesPar_10_0.8.csv")
 
 
 
 
     //run on validation data
     println(" --- NAIVE BAYES : Running verification")
-    for (k <- 1 to 4) {
-      val validationResult = getValidationResult(r.toBagOfWords("validation"), -9.9)
+    val validationResult = getValidationResult(k)
 
-
-      //compute precision, recall, f1 and averaged f1
-      println(" --- NAIVE BAYES : Computing scores")
-      val validationPrecisionRecall = validationResult.map { case (actual, expected) =>
-        (actual.intersect(expected).size.toDouble / (actual.size + scala.Double.MinPositiveValue),
-          actual.intersect(expected).size.toDouble / (expected.size + scala.Double.MinPositiveValue))
-      }
-      val validationF1 = validationPrecisionRecall
-        .map { case (precision, recall) => 2 * precision * recall / (precision + recall + scala.Double.MinPositiveValue) }
-      println(" --- NAIVE BAYES : k=" + (-9.5-(0.1*k)).toString() + " F1-Average=" + validationF1.sum / validationF1.length)
+    //compute precision, recall, f1 and averaged f1
+    println(" --- NAIVE BAYES : Computing scores")
+    val validationPrecisionRecall = validationResult.map { case (actual, expected) =>
+      (actual.intersect(expected).size.toDouble / (actual.size + scala.Double.MinPositiveValue),
+        actual.intersect(expected).size.toDouble / (expected.size + scala.Double.MinPositiveValue))
     }
-
-
+    val validationF1 = validationPrecisionRecall
+      .map { case (precision, recall) => 2 * precision * recall / (precision + recall + scala.Double.MinPositiveValue) }
+    println(" --- NAIVE BAYES : k=" + k + " F1-Average=" + validationF1.sum / validationF1.length)
   }
 }
