@@ -34,3 +34,5 @@ scalaVersion := "2.10.4"
 
 //get all the HEAP
 javaOptions += "-Xmx20G"
+
+mainClass in (Compile, run) := Some("LogisticRegression")
