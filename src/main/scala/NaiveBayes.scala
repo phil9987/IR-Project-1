@@ -11,11 +11,13 @@ import ch.ethz.dal.tinyir.processing.Tokenizer
 import scala.io.Source
 
 
-
+/**
+  *
+  */
 object NaiveBayes{
 
   var documentCategoryProbabilities = scala.collection.mutable.HashMap.empty[String,DenseVector[Double]].par
-  val reader = new Reader(10, 0.8, false) //create reader with no bias
+  val reader = new Reader(1, 0.2, false) //create reader with no bias
 
   /**
     *
@@ -68,7 +70,6 @@ object NaiveBayes{
     }
   }
 
-
   /**
     *
     * @param k
@@ -77,12 +78,58 @@ object NaiveBayes{
   def getValidationResult(k: Double): List[(Set[String],Set[String])] ={
     reader.toBagOfWords("validation").map(dp =>
       (documentCategoryProbabilities.map { case (code, wordCategoryProbabilities) =>
-        (log(reader.getProbabilityOfCode(code)) + dp.x.dot(wordCategoryProbabilities) / sum(dp.x), code)
-      }
+        (log(reader.getProbabilityOfCode(code)) + dp.x.dot(wordCategoryProbabilities) / sum(dp.x), code)}
         .toList.sortBy(_._1)
         .filter(_._1 > k)
         .map(_._2)
         .toSet, dp.y)).toList
+  }
+
+  def validate(): Unit ={
+    println(" --- NAIVE BAYES : Running trained model on validation data...")
+    for (k <- 1 until 10 by 1) {
+      val validationResult = getValidationResult(-9.4 - (0.1*k))
+
+      //compute precision, recall, f1 and averaged f1
+      println(" --- NAIVE BAYES : Computing scores")
+      val validationPrecisionRecall = validationResult.map { case (actual, expected) =>
+        (actual.intersect(expected).size.toDouble / (actual.size + scala.Double.MinPositiveValue),
+          actual.intersect(expected).size.toDouble / (expected.size + scala.Double.MinPositiveValue))
+      }
+      val validationF1 = validationPrecisionRecall
+        .map { case (precision, recall) => 2 * precision * recall / (precision + recall + scala.Double.MinPositiveValue) }
+      println(" --- NAIVE BAYES : k=" + (-9.4 - (0.1*k)).toString() + " F1-Average=" + validationF1.sum / validationF1.length)
+    }
+  }
+
+  /**
+    *
+    * @param k
+    */
+  def classifyTestSet(k: Double): Unit ={
+    reader.toBagOfWords("test").map(dp =>documentCategoryProbabilities.map { case (code, wordCategoryProbabilities) =>
+      (log(reader.getProbabilityOfCode(code)) + dp.x.dot(wordCategoryProbabilities) / sum(dp.x), code)}
+      .toList
+      .sortBy(_._1)
+      .filter(_._1 > k).map(_._2).toSet)
+  }
+
+  def train(): Unit ={
+    println(" --- NAIVE BAYES : Training Model...")
+    val codes = reader.codes.toList
+    println(" --- NAIVE BAYES : We will train " + codes.length + " codes")
+    codes.foreach(code => documentCategoryProbabilities += code -> DenseVector.ones[Double](reader.reducedDictionarySize))
+    println(" --- NAIVE BAYES : Calculating P(d|c) for every document d, category c pair...")
+    var i = 0
+    documentCategoryProbabilities = documentCategoryProbabilities.map { case (code, wordCategoryProbabilities) =>
+      i+=1
+      if (i % 5 == 0) println(" --- NAIVE BAYES : " + i + " codes passed")
+      code -> calculateWordCategoryProbabilities(wordCounts = wordCategoryProbabilities,
+        alpha = 1.0,
+        code = code,
+        bowStream = reader.toBagOfWords("train"),
+        vocabSize = reader.reducedDictionarySize)
+    }
   }
 
   /**
@@ -90,41 +137,11 @@ object NaiveBayes{
     * @param args
     */
   def main(args: Array[String]): Unit = {
-    val k = -9.9
-    println(" --- NAIVE BAYES : Training Model...")
-    /*val codes = reader.codes.toList
-    println(" --- NAIVE BAYES : We will train " + codes.length + " codes")
-    codes.foreach(code => documentCategoryProbabilities += code -> DenseVector.ones[Double](r.reducedDictionarySize))
-    println(" --- NAIVE BAYES : Calculating P(d|c) for every document d, category c pair...")
-    var i = 0
-    documentCategoryProbabilities = documentCategoryProbabilities.map { case (code, wordCategoryProbabilities) =>
-      i+=1
-      if (i % 5 == 0) println(" --- NAIVE BAYES : " + i + " codes passed")
-      code -> calculateWordCategoryProbabilities(wordCounts = wordCategoryProbabilities,
-      alpha = 1.0,
-      code = code,
-      bowStream = r.toBagOfWords("train"),
-      vocabSize = r.reducedDictionarySize)
-    }
 
-    saveDocumentCategoryProbabilitiesToFile("./src/main/resources/data/model/bayesPar3.csv")
-*/ loadDocumentCategoryProbabilitiesFromFile("./src/main/resources/data/model/bayesPar_10_0.8.csv")
+    //train()
+    //saveDocumentCategoryProbabilitiesToFile("./src/main/resources/data/model/bayesPar_2_0.8.csv")
+    loadDocumentCategoryProbabilitiesFromFile("./src/main/resources/data/model/bayesPar_2_0.8.csv")
+    validate()
 
-
-
-
-    //run on validation data
-    println(" --- NAIVE BAYES : Running verification")
-    val validationResult = getValidationResult(k)
-
-    //compute precision, recall, f1 and averaged f1
-    println(" --- NAIVE BAYES : Computing scores")
-    val validationPrecisionRecall = validationResult.map { case (actual, expected) =>
-      (actual.intersect(expected).size.toDouble / (actual.size + scala.Double.MinPositiveValue),
-        actual.intersect(expected).size.toDouble / (expected.size + scala.Double.MinPositiveValue))
-    }
-    val validationF1 = validationPrecisionRecall
-      .map { case (precision, recall) => 2 * precision * recall / (precision + recall + scala.Double.MinPositiveValue) }
-    println(" --- NAIVE BAYES : k=" + k + " F1-Average=" + validationF1.sum / validationF1.length)
   }
 }

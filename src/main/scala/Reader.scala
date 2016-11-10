@@ -4,6 +4,7 @@ import java.io.File
 import breeze.linalg.{DenseVector, SparseVector, Vector, VectorBuilder}
 import ch.ethz.dal.tinyir.io.ReutersRCVStream
 import ch.ethz.dal.tinyir.processing.XMLDocument
+import ch.ethz.dal.tinyir.processing.StopWords.stopWords
 
 /**
   * Created by marc on 31/10/16.
@@ -56,7 +57,7 @@ class Reader(minOccurrence: Int = 2,
   private val acceptableCount = maxOccurrenceRate * docCount
   val originalDictionarySize = wordCounts.size
   //compute dictionary (remove unusable words)
-  val dictionary = wordCounts.filter(x => x._2 <= acceptableCount && x._2 >= minOccurrence)
+  val dictionary = wordCounts.filter(x => !stopWords.contains(x._1) && x._2 <= acceptableCount && x._2 >= minOccurrence)
     .keys.toList.sorted.zipWithIndex.toMap
   val reducedDictionarySize = dictionary.size
   println(s" --- READER :     => reduced dictionary size from $originalDictionarySize to $reducedDictionarySize")
