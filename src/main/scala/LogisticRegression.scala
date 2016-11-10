@@ -13,13 +13,13 @@ object LogisticRegression{
     def train(): Unit = {
       println(" LOGREG : Creating reader object..")
       val reader = new Reader()
-      //val reader = new Reader(minOccurrence = 200 , maxOccurrenceRate = 0.01)
+      //val reader = new Reader(minOccurrence = 200, maxOccurrenceRate = 0.01)
       //val documents = reader.toBagOfWords("train")
       val documents = new DataPointIterator("train", reader)
 
       println(" LOGREG : Creating codes and thetas ")
       val codes = Set[String](reader.codes.toList: _*)
-      var thetas = collection.mutable.Map() ++ codes.map((_, DenseVector.fill[Double](reader.reducedDictionarySize + 1)(0.0))).toMap//.par
+      var thetas = collection.mutable.Map() ++ codes.map((_, DenseVector.fill[Double](reader.reducedDictionarySize + 1)(0.0))).toMap //.par
 
       var learning_rate = 1.0
 
@@ -51,14 +51,6 @@ object LogisticRegression{
         learning_rate = 1.0 / docNr
       }
 
-      /*
-      println("Example theta : FASHION")
-      var index : Int = 0;
-      reader.dictionary.foreach {
-        (t2) => printer.print(t2._1 + "  : " + thetas("GFAS")(index), 10)
-          index += 1
-      }
-      */
       var averageCodesPerDoc = totalCodesAssigned / 50000.0
       var codesAssignedProportion = averageCodesPerDoc / codes.size
       var cut = new cutoffFinder(codesAssignedProportion) //proportion of codes assigned to total codes
@@ -66,33 +58,41 @@ object LogisticRegression{
       println(s"Reduced dictionary size:" + reader.reducedDictionarySize)
 
 
-      val validationSet = new DataPointIterator("train", reader)
+      val validationSet = new DataPointIterator("validation", reader)
       docNr = 0
-      for (validationDoc <- validationSet){
+      for (validationDoc <- validationSet) {
         docNr += 1
         var codeProbability = thetas.seq.map {
           case (code, theta) => code -> logistic(theta.dot(validationDoc.x))
         }
-        var sortedCodesProbabilities = ListMap(codeProbability.toSeq.sortBy( - _._2):_*)
+        var sortedCodesProbabilities = ListMap(codeProbability.toSeq.sortBy(-_._2): _*)
         printer.print(s"For document number $docNr with labels ${validationDoc.y} , got : \r\n        " + sortedCodesProbabilities, 1000)
         sortedCodesProbabilities.foreach {
           case (code, prob) => cut.add(prob)
         }
       }
 
+      var cutoff = cut.getCutoff()
       println(s"average codes assigned : $averageCodesPerDoc ( $codesAssignedProportion )")
-      println(s"cutoff value : ${cut.getCutoff()}") }
+      println(s"cutoff value : ${cutoff}")
 
-      for (validationDoc <- validationSet){
-        docNr += 1
-        var codeProbability = thetas.seq.map {
-          case (code, theta) => code -> logistic(theta.dot(validationDoc.x))
-        }
-        var sortedCodesProbabilities = ListMap(codeProbability.toSeq.sortBy( - _._2):_*)
-        printer.print(s"For document number $docNr with labels ${validationDoc.y} , got : \r\n        " + sortedCodesProbabilities, 1000)
-        sortedCodesProbabilities.foreach {
-          case (code, prob) => cut.add(prob)
-        }
+
+      val validationResult = reader.toBagOfWords("validation").map(validationDoc =>
+        (thetas.map { case (code, theta) => (logistic(theta.dot(validationDoc.x)), code)
+        }.filter(_._1 > cutoff).map(_._2).toSet, validationDoc.y.intersect(possibleCodes.topicCodes))).toList
+
+      val averageAssignedCodes = valdidationResult.map{  case ()}
+      println("Computing score")
+      val validationPrecisionRecall = validationResult.map { case (actual, expected) =>
+        (actual.intersect(expected).size.toDouble / (actual.size + scala.Double.MinPositiveValue),
+          actual.intersect(expected).size.toDouble / (expected.size + scala.Double.MinPositiveValue))
       }
+
+      println(s"average precision : ${validationPrecisionRecall.map(_._1).sum / validationPrecisionRecall.length}")
+      println(s"average recall   : ${validationPrecisionRecall.map(_._2).sum / validationPrecisionRecall.length}")
+      val validationF1 = validationPrecisionRecall
+        .map { case (precision, recall) => 2 * precision * recall / (precision + recall + scala.Double.MinPositiveValue) }
+      println("score : "${validationF1.sum / validationF1.length)}
+    }
 
 }
