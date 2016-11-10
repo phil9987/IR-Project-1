@@ -11,15 +11,11 @@ object LogisticRegression{
 
 
     def train(): Unit = {
-      println(" LOGREG : Creating reader object..")
-      val reader = new Reader()
-      //val reader = new Reader(minOccurrence = 200, maxOccurrenceRate = 0.01)
-      //val documents = reader.toBagOfWords("train")
-      val documents = new DataPointIterator("train", reader)
+      val reader = new Reader(minOccurrence = 1, maxOccurrenceRate = 0.0001)
+      val documents = reader.toBagOfWords("train")
 
-      println(" LOGREG : Creating codes and thetas ")
       val codes = Set[String](reader.codes.toList: _*)
-      var thetas = collection.mutable.Map() ++ codes.map((_, DenseVector.fill[Double](reader.reducedDictionarySize + 1)(0.0))).toMap //.par
+      var thetas = codes.map((_, DenseVector.fill[Double](reader.reducedDictionarySize + 1)(0.0))).toMap.par
 
       var learning_rate = 1.0
 
@@ -28,7 +24,6 @@ object LogisticRegression{
       }
 
       var totalCodesAssigned = 0
-
       def update(theta: DenseVector[Double], code: String, doc: DataPoint): DenseVector[Double] = {
         val alpha = reader.getProbabilityOfCode(code)
         if (doc.y contains code) {
@@ -51,14 +46,12 @@ object LogisticRegression{
         learning_rate = 1.0 / docNr
       }
 
+
+      //Find optimal cutoff value such that the proportion of codes assigned is the same in the training and validation sets
       var averageCodesPerDoc = totalCodesAssigned / 50000.0
-      var codesAssignedProportion = averageCodesPerDoc / codes.size
-      var cut = new cutoffFinder(codesAssignedProportion) //proportion of codes assigned to total codes
-
+      var cut = new cutoffFinder(averageCodesPerDoc / codes.size) //proportion of codes assigned to total codes
       println(s"Reduced dictionary size:" + reader.reducedDictionarySize)
-
-
-      val validationSet = new DataPointIterator("validation", reader)
+      val validationSet = reader.toBagOfWords("validation")
       docNr = 0
       for (validationDoc <- validationSet) {
         docNr += 1
@@ -71,28 +64,29 @@ object LogisticRegression{
           case (code, prob) => cut.add(prob)
         }
       }
-
       var cutoff = cut.getCutoff()
-      println(s"average codes assigned : $averageCodesPerDoc ( $codesAssignedProportion )")
+      println(s"average codes expected : $averageCodesPerDoc")
       println(s"cutoff value : ${cutoff}")
 
-
+      //assign codes and check that proportion of codes assigned is the same
       val validationResult = reader.toBagOfWords("validation").map(validationDoc =>
         (thetas.map { case (code, theta) => (logistic(theta.dot(validationDoc.x)), code)
         }.filter(_._1 > cutoff).map(_._2).toSet, validationDoc.y.intersect(possibleCodes.topicCodes))).toList
+      val averageAssignedCodes = 1.0 * validationResult.map(_._1.size).sum / validationResult.length
+      println(s"average codes assigned : $averageAssignedCodes")
 
-      val averageAssignedCodes = valdidationResult.map{  case ()}
+
+
       println("Computing score")
       val validationPrecisionRecall = validationResult.map { case (actual, expected) =>
         (actual.intersect(expected).size.toDouble / (actual.size + scala.Double.MinPositiveValue),
           actual.intersect(expected).size.toDouble / (expected.size + scala.Double.MinPositiveValue))
       }
-
       println(s"average precision : ${validationPrecisionRecall.map(_._1).sum / validationPrecisionRecall.length}")
       println(s"average recall   : ${validationPrecisionRecall.map(_._2).sum / validationPrecisionRecall.length}")
       val validationF1 = validationPrecisionRecall
         .map { case (precision, recall) => 2 * precision * recall / (precision + recall + scala.Double.MinPositiveValue) }
-      println("score : "${validationF1.sum / validationF1.length)}
+      println(s"score : ${validationF1.sum / validationF1.length}")
     }
 
 }
