@@ -19,7 +19,7 @@ import ch.ethz.dal.tinyir.processing.StopWords.stopWords
   * @param x Bag of Words
   * @param y Lables
   */
-case class DataPoint(x: SparseVector[Double], y: Set[String])
+case class DataPoint(itemid: Int, x: SparseVector[Double], y: Set[String])
 
 /**
   * Reads all samples from the training data and forms a dictionary from that.
@@ -31,7 +31,7 @@ case class DataPoint(x: SparseVector[Double], y: Set[String])
   *                         are discared. Should be in (0, 1].
   * @param bias             Indicates wheter to include an extra 1 in bag-of-words vectors
   */
-class Reader(minOccurrence: Int = 2,
+class Reader(minOccurrence: Int = 1,
              maxOccurrenceRate: Double = 0.2,
              bias: Boolean = true) {
 
@@ -60,14 +60,12 @@ class Reader(minOccurrence: Int = 2,
     doc.codes.foreach(x => numDocsPerCode(x) = 1 + numDocsPerCode.getOrElse(x,0))
   }
 
-  codes = codes.intersect(possibleCodes.topicCodes)
-
 
   println(" --- READER : Filtering out words...")
   private val acceptableCount = maxOccurrenceRate * docCount
   val originalDictionarySize = wordCounts.size
   //compute dictionary (remove unusable words)
-  val dictionary = wordCounts.filter(x => !stopWords.contains(x._1) && x._2 <= acceptableCount && x._2 >= minOccurrence)
+  val dictionary = wordCounts.filter(x => x._2 <= acceptableCount && x._2 >= minOccurrence)
     .keys.toList.sorted.zipWithIndex.toMap
   val reducedDictionarySize = dictionary.size
   println(s" --- READER :     => reduced dictionary size from $originalDictionarySize to $reducedDictionarySize")
@@ -96,7 +94,7 @@ class Reader(minOccurrence: Int = 2,
         .filter(_._1 >= 0).sortBy(_._1)
         .foreach { case (index, count) => v.add(index, count) }
       if (bias) v.add(reducedDictionarySize, 1) //bias
-      DataPoint(v.toSparseVector(true, true), doc.codes.intersect(codes))
+        DataPoint(doc.ID, v.toSparseVector(true, true), doc.codes)
     })
 
   /**
