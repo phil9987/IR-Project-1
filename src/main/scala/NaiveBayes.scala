@@ -17,7 +17,7 @@ import scala.io.Source
 object NaiveBayes{
 
   var documentCategoryProbabilities = scala.collection.mutable.HashMap.empty[String,DenseVector[Double]].par
-  val reader = new Reader(1, 0.2, false) //create reader with no bias
+  val reader = new Reader(2, 0.2, false) //create reader with no bias
 
   /**
     *
@@ -87,8 +87,8 @@ object NaiveBayes{
 
   def validate(): Unit ={
     println(" --- NAIVE BAYES : Running trained model on validation data...")
-    for (k <- 1 until 10 by 1) {
-      val validationResult = getValidationResult(-9.4 - (0.1*k))
+    for (k <- -8 until -15 by -1) {
+      val validationResult = getValidationResult(k)
 
       //compute precision, recall, f1 and averaged f1
       println(" --- NAIVE BAYES : Computing scores")
@@ -98,7 +98,7 @@ object NaiveBayes{
       }
       val validationF1 = validationPrecisionRecall
         .map { case (precision, recall) => 2 * precision * recall / (precision + recall + scala.Double.MinPositiveValue) }
-      println(" --- NAIVE BAYES : k=" + (-9.4 - (0.1*k)).toString() + " F1-Average=" + validationF1.sum / validationF1.length)
+      println(" --- NAIVE BAYES : k=" + k + " F1-Average=" + validationF1.sum / validationF1.length)
     }
   }
 
@@ -138,9 +138,9 @@ object NaiveBayes{
     */
   def main(args: Array[String]): Unit = {
 
-    //train()
-    //saveDocumentCategoryProbabilitiesToFile("./src/main/resources/data/model/bayesPar_2_0.8.csv")
-    loadDocumentCategoryProbabilitiesFromFile("./src/main/resources/data/model/bayesPar_2_0.8.csv")
+    train()
+    saveDocumentCategoryProbabilitiesToFile("./src/main/resources/data/model/bayesPar_2_0.2_stemmed.csv")
+    //loadDocumentCategoryProbabilitiesFromFile("./src/main/resources/data/model/bayesPar_2_0.8.csv")
     validate()
 
   }
