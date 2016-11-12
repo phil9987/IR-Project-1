@@ -17,7 +17,7 @@ import ch.ethz.dal.tinyir.processing.StopWords.stopWords
   * @param x Bag of Words
   * @param y Lables
   */
-case class DataPoint(x: SparseVector[Double], y: Set[String])
+case class DataPoint(itemid: Int, x: SparseVector[Double], y: Set[String])
 
 /**
   * Reads all samples from the training data and forms a dictionary from that.
@@ -29,7 +29,7 @@ case class DataPoint(x: SparseVector[Double], y: Set[String])
   *                         are discared. Should be in (0, 1].
   * @param bias             Indicates wheter to include an extra 1 in bag-of-words vectors
   */
-class Reader(minOccurrence: Int = 2,
+class Reader(minOccurrence: Int = 1,
              maxOccurrenceRate: Double = 0.2,
              bias: Boolean = true) {
   println(" --- READER : Initializing Stream.")
@@ -86,7 +86,7 @@ class Reader(minOccurrence: Int = 2,
         .filter(_._1 >= 0).sortBy(_._1)
         .foreach { case (index, count) => v.add(index, count) }
       if (bias) v.add(reducedDictionarySize, 1) //bias
-      DataPoint(v.toSparseVector(true, true), doc.codes.intersect(codes))
+        DataPoint(doc.ID, v.toSparseVector(true, true), doc.codes.intersect(codes))
     })
 
   /**
