@@ -1,4 +1,6 @@
 import java.io.File
+
+import com.github.aztek.porterstemmer.PorterStemmer
 //import scala.util.{Try, Success, Failure
 
 import breeze.linalg.{DenseVector, SparseVector, Vector, VectorBuilder}
@@ -12,7 +14,7 @@ import ch.ethz.dal.tinyir.processing.StopWords.stopWords
 
 
 /**
-  * Represents one data item in our project.
+  * Represents one data item in our project.i
   * Consints of x, the bag-of-words-vector and y, the set of codes.
   * @param x Bag of Words
   * @param y Lables
@@ -32,6 +34,14 @@ case class DataPoint(itemid: Int, x: SparseVector[Double], y: Set[String])
 class Reader(minOccurrence: Int = 1,
              maxOccurrenceRate: Double = 0.2,
              bias: Boolean = true) {
+
+  def tokenToWord(token: String) = PorterStemmer.stem(token.toLowerCase)
+
+  val pattern = "[\\p{L}\\-]+".r.pattern
+  def filterWords(word: String) = !stopWords.contains(word) && pattern.matcher(word).matches()
+
+
+
   println(" --- READER : Initializing Stream.")
   private val r = new ReutersRCVStream(new File("./src/main/resources/data/train").getCanonicalPath, ".zip")
   private val wordCounts = scala.collection.mutable.HashMap[String, Int]()
@@ -45,7 +55,7 @@ class Reader(minOccurrence: Int = 1,
   println(" --- READER : Counting word- and code-occurences in training corpus...")
   //count words in files
   for (doc <- r.stream) {
-    doc.tokens.distinct.foreach(x => wordCounts(x) = 1 + wordCounts.getOrElse(x, 0))
+    doc.tokens.distinct.map(tokenToWord).filter(filterWords).distinct.foreach(x => wordCounts(x) = 1 + wordCounts.getOrElse(x, 0))
     doc.codes.foreach(codes += _)
     doc.codes.foreach(x => numDocsPerCode(x) = 1 + numDocsPerCode.getOrElse(x,0))
   }
@@ -81,7 +91,7 @@ class Reader(minOccurrence: Int = 1,
   def toBagOfWords(input: Stream[XMLDocument]): Stream[DataPoint] =
     input.map(doc => {
       val v = new VectorBuilder[Double](outLength)
-      doc.tokens.groupBy(identity).mapValues(_.size).toList
+      doc.tokens.map(tokenToWord).filter(filterWords).groupBy(identity).mapValues(_.size).toList
         .map { case (key, count) => if (dictionary.contains(key)) (dictionary(key), count) else (-1, 0) }
         .filter(_._1 >= 0).sortBy(_._1)
         .foreach { case (index, count) => v.add(index, count) }
