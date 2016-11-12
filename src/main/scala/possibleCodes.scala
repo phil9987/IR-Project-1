@@ -3,6 +3,7 @@ object possibleCodes {
     if (s == "topic")  topicCodes
     else if (s == "industry") industyCodes
     else if (s == "country") countryCodes
+    else Set()
   }
   def topicCodes = Set(
     "1POL",
