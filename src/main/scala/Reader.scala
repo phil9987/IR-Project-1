@@ -60,14 +60,12 @@ class Reader(minOccurrence: Int = 1,
     doc.codes.foreach(x => numDocsPerCode(x) = 1 + numDocsPerCode.getOrElse(x,0))
   }
 
-  codes = codes.intersect(possibleCodes.topicCodes)
-
 
   println(" --- READER : Filtering out words...")
   private val acceptableCount = maxOccurrenceRate * docCount
   val originalDictionarySize = wordCounts.size
   //compute dictionary (remove unusable words)
-  val dictionary = wordCounts.filter(x => !stopWords.contains(x._1) && x._2 <= acceptableCount && x._2 >= minOccurrence)
+  val dictionary = wordCounts.filter(x => x._2 <= acceptableCount && x._2 >= minOccurrence)
     .keys.toList.sorted.zipWithIndex.toMap
   val reducedDictionarySize = dictionary.size
   println(s" --- READER :     => reduced dictionary size from $originalDictionarySize to $reducedDictionarySize")
@@ -96,7 +94,7 @@ class Reader(minOccurrence: Int = 1,
         .filter(_._1 >= 0).sortBy(_._1)
         .foreach { case (index, count) => v.add(index, count) }
       if (bias) v.add(reducedDictionarySize, 1) //bias
-        DataPoint(doc.ID, v.toSparseVector(true, true), doc.codes.intersect(codes))
+        DataPoint(doc.ID, v.toSparseVector(true, true), doc.codes)
     })
 
   /**

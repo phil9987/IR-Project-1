@@ -1,4 +1,9 @@
 object possibleCodes {
+  def fromString(s : String): Set[String] = {
+    if (s == "topic")  topicCodes
+    else if (s == "industry") industyCodes
+    else if (s == "country") countryCodes
+  }
   def topicCodes = Set(
     "1POL",
     "2ECO",
