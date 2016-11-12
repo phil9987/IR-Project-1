@@ -30,9 +30,9 @@ resolvers ++= Seq(
 )
 
 // or 2.11.5
-scalaVersion := "2.10.4"
+scalaVersion := "2.11.7"
 
 //get all the HEAP
 javaOptions += "-Xmx20G"
 
-mainClass in (Compile, run) := Some("LogisticRegression")
+//mainClass in (Compile, run) := Some("LogisticRegression")
