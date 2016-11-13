@@ -10,17 +10,22 @@ object LogisticRegression{
   val logger = new Logger("LogisticRegression")
 
   def main(args : Array[String]): Unit ={
+
     train("train")
+    /*
     var  possiblecutoffs = List(0.50, 0.505, 0.51, 0.515, 0.52, 0.525, 0.53, 0.535, 0.54, 0.545, 0.55, 0.555, 0.56, 0.565, 0.57, 0.575, 0.58, 0.585, 0.59, 0.595, 0.60)
-    var resultingScores = scala.collection.mutable.Buffer(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0)
+    var resultingScores = scala.collection.mutable.Buffer(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0)
     var index = 0
     for (cutoff  <- possiblecutoffs) {
       resultingScores(index) = validate(cutoff)
       index += 1
     }
-    println(s"RESULTING SCORES : $resultingScores")
 
-    //predict()
+    validate("0.525")
+    println(s"RESULTING SCORES : $resultingScores")
+    */
+    validate(cutoff = 0.525)
+    predict(cutoff = 0.525)
   }
   def logistic(x: Double): Double = {
     1.0 / (1.0 + Math.exp(-x))
@@ -107,6 +112,7 @@ object LogisticRegression{
       assignedCodes.foreach {
         case (itemid, assigned) =>
         buf += new Tuple2(assignedCodes(itemid) , realCodes(itemid))
+          println(s"${assignedCodes(itemid)}" + s"${realCodes(itemid)}")
       }
 
       logger.log(s"average codes assigned per doc in total: ${1.0 * assignedCodes.map(_._2.size).sum / assignedCodes.size}")
@@ -126,7 +132,7 @@ object LogisticRegression{
     return (validationF1.sum / 10000.0)
   }
 
-  def predict() : Unit = {
+  def predict(cutoff:Double) : Unit = {
       var assignedCodes: Map[Int,Set[String]] = Map()
       //assign codes
       for (labelType <- labelTypes) {
@@ -136,14 +142,14 @@ object LogisticRegression{
           }
           assignedCodes(testDoc.itemId) ++= //adds the codes
             (thetasMap(labelType).map { case (code, theta) => (logistic(theta.dot(testDoc.x)), code)
-            }.filter(_._1 > cutoffMap(labelType)).map(_._2).toSet)
+            }.filter(_._1 > cutoff).map(_._2).toSet)
         }
 
       }
 
       import java.io.PrintWriter
       import java.io.File
-      val pw = new PrintWriter(new File("test.txt"))
+      val pw = new PrintWriter(new File("countrycodes.txt"))
       assignedCodes.toSeq.sortBy(_._1).foreach{ case(id, codes) =>
         var line = s"$id "
         codes.foreach(x=> line = line.concat(x + " "))
