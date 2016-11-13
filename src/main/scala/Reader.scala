@@ -25,7 +25,7 @@ case class DataPoint(itemId: Int, x: SparseVector[Double], y: Set[String])
   */
 abstract class BaseReader()
 {
-  protected val logger = new Logger("Reader")
+  private val logger = new Logger("BaseReader")
   //cache used by cachedStem
   protected val stemmingCache = scala.collection.mutable.HashMap[String, String]()
 
@@ -57,6 +57,65 @@ abstract class BaseReader()
     * @return Boolean indicating wheter to remove the word or not.
     */
   def filterWords(word: String) = !stopWords.contains(word) && pattern.matcher(word).matches()
+
+
+
+  protected val wordCounts = scala.collection.mutable.HashMap[String, Int]()
+  protected var docCount = 0
+  protected val numDocsPerCode = scala.collection.mutable.HashMap[String, Int]()
+  var codes = scala.collection.mutable.Set[String]()
+
+  protected def init() = {
+    logger.log("init")
+    logger.log("init: Initializing Stream.")
+    val r = new ReutersRCVStream(new File("./src/main/resources/data/train").getCanonicalPath, ".zip")
+    docCount = r.length
+    logger.log("init: Counting word- and code-occurences in training corpus...")
+    for (doc <- r.stream) {
+      doc.tokens.distinct.map(tokenToWord).filter(filterWords).distinct.foreach(x => wordCounts(x) = 1 + wordCounts.getOrElse(x, 0))
+      doc.codes.foreach(codes += _)
+      doc.codes.foreach(x => numDocsPerCode(x) = 1 + numDocsPerCode.getOrElse(x,0))
+    }
+  }
+
+  init()
+
+
+  /**
+    * Load the datapoints for a given collection.
+    * @param collectionName The name of the collection. Either "test", "train" or "validation"
+    * @return Stream of datapoints.
+    */
+  def toBagOfWords(collectionName: String): Stream[DataPoint] = {
+    toBagOfWords(new ReutersRCVStream(
+      new File("./src/main/resources/data/" + collectionName).getCanonicalPath, ".zip").stream)
+  }
+
+
+  /**
+    * Load the datapoints for a given stream of documents.
+    * @param input The documents.
+    * @return Stream of datapoints.
+    */
+  def toBagOfWords(input: Stream[XMLDocument]): Stream[DataPoint] =
+  {
+    logger.log("toBagOfWords")
+    List[DataPoint]().toStream
+  }
+
+  /**
+    * Calculates probability of a code (#docs which contain code / total nb of docs)
+    * @param code The code of a class
+    * @return The probability of the code in the training set
+    */
+  def getProbabilityOfCode(code: String): Double = {
+    val numDocs = numDocsPerCode.get(code)
+    numDocs match{
+      case Some(numDocs) => numDocs.toDouble / docCount.toDouble
+      case None => 0.0
+    }
+  }
+
 }
 
 /**
@@ -69,29 +128,12 @@ abstract class BaseReader()
   *                         are discarded. Should be in (0, 1].
   * @param bias             Indicates whether to include an extra 1 in bag-of-words vectors
   */
+
 class Reader(minOccurrence: Int = 1,
              maxOccurrenceRate: Double = 0.2,
              bias: Boolean = true) extends BaseReader {
-
-
-  logger.log("Initializing Stream.")
-  private val r = new ReutersRCVStream(new File("./src/main/resources/data/train").getCanonicalPath, ".zip")
-  private val wordCounts = scala.collection.mutable.HashMap[String, Int]()
-  logger.log("Counting total number of documents.")
-  private val docCount = r.length
-  logger.log(s"=> got $docCount")
-  var codes = scala.collection.mutable.Set[String]()
-  private val numDocsPerCode = scala.collection.mutable.HashMap[String, Int]()
-
-
-  logger.log("Counting word- and code-occurences in training corpus...")
-  //count words in files
-  for (doc <- r.stream) {
-    doc.tokens.distinct.map(tokenToWord).filter(filterWords).distinct.foreach(x => wordCounts(x) = 1 + wordCounts.getOrElse(x, 0))
-    doc.codes.foreach(codes += _)
-    doc.codes.foreach(x => numDocsPerCode(x) = 1 + numDocsPerCode.getOrElse(x,0))
-  }
-
+  private val logger = new Logger("Reader")
+  logger.log(s"Starting Reader minOccurrence=$minOccurrence, maxOccurrenceRate=$maxOccurrenceRate, bias=$bias")
 
   logger.log("Filtering out words...")
   private val acceptableCount = maxOccurrenceRate * docCount
@@ -105,20 +147,13 @@ class Reader(minOccurrence: Int = 1,
   val outLength = reducedDictionarySize + (if (bias) 1 else 0)
 
   /**
-    * Load the datapoints for a given collection.
-    * @param collectionName The name of the collection. Either "test", "train" or "validation"
-    * @return Stream of datapoints.
-    */
-  def toBagOfWords(collectionName: String): Stream[DataPoint] = {
-    toBagOfWords(new ReutersRCVStream(
-      new File("./src/main/resources/data/" + collectionName).getCanonicalPath, ".zip").stream)
-  }
-  /**
     * Load the datapoints for a given stream of documents.
+    *
     * @param input The documents.
     * @return Stream of datapoints.
     */
-  def toBagOfWords(input: Stream[XMLDocument]): Stream[DataPoint] =
+  override def toBagOfWords(input: Stream[XMLDocument]): Stream[DataPoint] = {
+    logger.log("toBagOfWords")
     input.map(doc => {
       val v = new VectorBuilder[Double](outLength)
       doc.tokens.map(tokenToWord).filter(filterWords).groupBy(identity).mapValues(_.size).toList
@@ -126,20 +161,66 @@ class Reader(minOccurrence: Int = 1,
         .filter(_._1 >= 0).sortBy(_._1)
         .foreach { case (index, count) => v.add(index, count) }
       if (bias) v.add(reducedDictionarySize, 1) //bias
-        DataPoint(doc.ID, v.toSparseVector(true, true), doc.codes)
+      DataPoint(doc.ID, v.toSparseVector(true, true), doc.codes)
     })
+  }
+}
 
-  /**
-    * Calculates probability of a code (#docs which contain code / total nb of docs)
-    * @param code The code of a class
-    * @return The probability of the code in the training set
-   */
-  def getProbabilityOfCode(code: String): Double = {
-    val numDocs = numDocsPerCode.get(code)
-    numDocs match{
-      case Some(numDocs) => numDocs.toDouble / docCount.toDouble
-      case None => 0.0
+
+class TfIDfReader(topNDocs: Int, bias: Boolean = true) extends BaseReader {
+  private val logger = new Logger("TfIDfReader")
+  logger.log(s"Starting TfIDfReader topN=$topNDocs bias=$bias")
+
+  //fast version of sort().take(n)
+  //based on
+  //https://stackoverflow.com/questions/8274726/top-n-items-in-a-list-including-duplicates
+  def topNs(xs: TraversableOnce[Tuple2[String,Int]], n: Int) = {
+    var ss = List[Tuple2[String,Int]]()
+    var max = Int.MinValue
+    var len = 0
+    xs foreach { e =>
+      if (len < n || e._2 < max) {
+        ss = (e :: ss).sorted
+        max = ss.head._2
+        len += 1
+      }
+      if (len > n) {
+        ss = ss.tail
+        max = ss.head._2
+        len -= 1
+      }
     }
+    ss
   }
 
+  logger.log("Finding top documents...")
+  val top =  topNs(wordCounts.toList,topNDocs);
+  logger.log("Calculating idf")
+  val idf = top.par.map(x => (x._1, Math.log( docCount.toDouble/x._2
+    .toDouble
+  ))).toMap.seq
+  val dictionary = idf.keys.toList.sorted.zipWithIndex.toMap
+  val outLength = dictionary.size + (if (bias) 1 else 0)
+
+  /**
+    * Load the datapoints for a given stream of documents.
+    * @param input The documents.
+    * @return Stream of datapoints.
+    */
+  override   def toBagOfWords(input: Stream[XMLDocument]): Stream[DataPoint] = {
+    logger.log("toBagOfWords")
+    input.map(doc => {
+      val v = new VectorBuilder[Double](outLength)
+      val actualWords = doc.tokens.map(tokenToWord).filter(filterWords).filter(dictionary.contains)
+      actualWords.groupBy(identity).mapValues(_.size).toList
+        .filter(x => dictionary.contains(x._1))
+        .map {
+               case (key, count) => (dictionary(key), idf(key) * count.toDouble / actualWords.length)
+             }.sortBy(_._1)
+        .foreach { case (index, count) => v.add(index, count) }
+      if (bias) v.add(outLength - 1, 1) //bias
+      val bagOfWordsVector = v.toSparseVector(true, true)
+      DataPoint(doc.ID, breeze.linalg.normalize(bagOfWordsVector), doc.codes.intersect(codes))
+    })
+  }
 }
