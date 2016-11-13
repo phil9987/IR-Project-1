@@ -35,10 +35,18 @@ class Reader(minOccurrence: Int = 2,
              maxOccurrenceRate: Double = 0.2,
              bias: Boolean = true) {
 
-  def tokenToWord(token: String) = PorterStemmer.stem(token.toLowerCase)
+
+  val stemmingCache = scala.collection.mutable.HashMap[String, String]()
+  def cachedStem(token: String) = {
+    if (!stemmingCache.contains(token)) stemmingCache(token) = PorterStemmer.stem(token.toLowerCase)
+    stemmingCache(token)
+  }
+
+  def tokenToWord(token: String) = cachedStem(token)
 
   val pattern = "[\\p{L}\\-]+".r.pattern
   def filterWords(word: String) = !stopWords.contains(word) && pattern.matcher(word).matches()
+
 
 
 
