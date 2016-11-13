@@ -195,6 +195,56 @@ class Reader(minOccurrence: Int = 1,
   }
 }
 
+/**
+  * Reads all samples from the training data and forms a dictionary from that.
+  * Provides methods to read other data sets as streams of bag-of-words-vectors
+  * (based on the trained dictionary)
+  *
+  * @param minOccurrence     Minimum number of documents that a word must be included in.
+  * @param maxOccurrenceRate Words that are in more than maxOccurrenceRate*nrDocuments documents
+  *                         are discarded. Should be in (0, 1].
+  * @param bias             Indicates whether to include an extra 1 in bag-of-words vectors
+  */
+class ReaderTfIdfWeighted(minOccurrence: Int = 1,
+             maxOccurrenceRate: Double = 0.2,
+             bias: Boolean = true) extends BaseReader {
+  private val logger = new Logger("Reader")
+  logger.log(s"Starting Reader minOccurrence=$minOccurrence, maxOccurrenceRate=$maxOccurrenceRate, bias=$bias")
+
+  logger.log("Calculating idf")
+  val idf = wordCounts.toList.par.map(x => (x._1, Math.log( docCount.toDouble/x._2
+    .toDouble
+  ))).toMap.seq
+  logger.log("Filtering out words...")
+  private val acceptableCount = maxOccurrenceRate * docCount
+  val originalDictionarySize = wordCounts.size
+  //compute dictionary (remove unusable words)
+  val dictionary = wordCounts.filter(x => x._2 <= acceptableCount && x._2 >= minOccurrence)
+    .keys.toList.sorted.zipWithIndex.toMap
+  val reducedDictionarySize = dictionary.size
+  logger.log(s"=> reduced dictionary size from $originalDictionarySize to $reducedDictionarySize")
+  logger.log(s"=> Total number of considered codes : ${codes.size}")
+  val outLength = reducedDictionarySize + (if (bias) 1 else 0)
+
+  /**
+    * Load the datapoints for a given stream of documents.
+    *
+    * @param input The documents.
+    * @return Stream of datapoints.
+    */
+  override def toBagOfWords(input: Stream[XMLDocument]): Stream[DataPoint] = {
+    input.map(doc => {
+      val v = new VectorBuilder[Double](outLength)
+      doc.tokens.map(tokenToWord).filter(filterWords).groupBy(identity).mapValues(_.size).toList
+        .map { case (key, count) => if (dictionary.contains(key) && idf.contains(key)) (dictionary(key), count.toDouble*idf(key)) else (-1, 0) }
+        .filter(_._1 >= 0).sortBy(_._1)
+        .foreach { case (index, count) => v.add(index, count) }
+      if (bias) v.add(reducedDictionarySize, 1) //bias
+      DataPoint(doc.ID, v.toSparseVector(true, true), doc.codes)
+    })
+  }
+}
+
 
 class TfIDfReader(topNDocs: Int, bias: Boolean = true) extends BaseReader {
   private val logger = new Logger("TfIDfReader")
@@ -240,7 +290,7 @@ class PerClassTfIdfReader(topNDocs: Int, bias: Boolean = true) extends BaseReade
 {
   val logger = new Logger("PerClassTfIdfReader")
   val perClassWordCount = scala.collection.mutable.HashMap[String, scala.collection.mutable.HashMap[String, Int]]()
-
+  val reducedDictionarySize = topNDocs
   val outLength = topNDocs + (if (bias) 1 else 0)
 
   protected override def init() = {
