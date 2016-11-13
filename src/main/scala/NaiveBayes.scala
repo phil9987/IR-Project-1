@@ -76,19 +76,20 @@ object NaiveBayes{
     * @return
     */
   def getValidationResult(k: Double): List[(Set[String],Set[String])] ={
+    val actual_codes = Set[String](reader.codes.toList:_*).intersect(possibleCodes.fromString("topic"))
     reader.toBagOfWords("validation").map(dp =>
       (documentCategoryProbabilities.map { case (code, wordCategoryProbabilities) =>
         (log(reader.getProbabilityOfCode(code)) + dp.x.dot(wordCategoryProbabilities) / sum(dp.x), code)}
         .toList.sortBy(_._1)
         .filter(_._1 > k)
         .map(_._2)
-        .toSet, dp.y)).toList
+        .toSet.intersect(actual_codes), dp.y.intersect(actual_codes))).toList
   }
 
   def validate(): Unit ={
     println(" --- NAIVE BAYES : Running trained model on validation data...")
-    for (k <- -8 until -15 by -1) {
-      val validationResult = getValidationResult(k)
+    for (k <- 1 until 10 by 1) {
+      val validationResult = getValidationResult(-10-(k*0.1))
 
       //compute precision, recall, f1 and averaged f1
       println(" --- NAIVE BAYES : Computing scores")
@@ -98,7 +99,7 @@ object NaiveBayes{
       }
       val validationF1 = validationPrecisionRecall
         .map { case (precision, recall) => 2 * precision * recall / (precision + recall + scala.Double.MinPositiveValue) }
-      println(" --- NAIVE BAYES : k=" + k + " F1-Average=" + validationF1.sum / validationF1.length)
+      println(" --- NAIVE BAYES : k=" + (-10-(k*0.1)).toString() + " F1-Average=" + validationF1.sum / validationF1.length)
     }
   }
 
@@ -138,9 +139,9 @@ object NaiveBayes{
     */
   def main(args: Array[String]): Unit = {
 
-    train()
-    saveDocumentCategoryProbabilitiesToFile("./src/main/resources/data/model/bayesPar_2_0.2_stemmed.csv")
-    //loadDocumentCategoryProbabilitiesFromFile("./src/main/resources/data/model/bayesPar_2_0.8.csv")
+    //train()
+    //saveDocumentCategoryProbabilitiesToFile("./src/main/resources/data/model/bayesPar_2_0.2_stemmed.csv")
+    loadDocumentCategoryProbabilitiesFromFile("./src/main/resources/data/model/bayesPar_2_0.2_stemmed.csv")
     validate()
 
   }
