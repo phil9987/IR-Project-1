@@ -236,7 +236,7 @@ class ReaderTfIdfWeighted(minOccurrence: Int = 1,
     input.map(doc => {
       val v = new VectorBuilder[Double](outLength)
       doc.tokens.map(tokenToWord).filter(filterWords).groupBy(identity).mapValues(_.size).toList
-        .map { case (key, count) => if (dictionary.contains(key) && idf.contains(key)) (dictionary(key), count.toDouble*idf(key)) else (-1, 0) }
+        .map { case (key, count) => if (dictionary.contains(key) && idf.contains(key)) (dictionary(key), count.toDouble*idf(key)) else (-1, 0.0) }
         .filter(_._1 >= 0).sortBy(_._1)
         .foreach { case (index, count) => v.add(index, count) }
       if (bias) v.add(reducedDictionarySize, 1) //bias
