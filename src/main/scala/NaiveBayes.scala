@@ -16,6 +16,7 @@ import scala.io.Source
   */
 object NaiveBayes{
 
+  val logger = new Logger("NaiveBayes")
   var documentCategoryProbabilities = scala.collection.mutable.HashMap.empty[String,DenseVector[Double]].par
   val reader = new Reader(2, 0.2, false) //create reader with no bias
 
@@ -49,7 +50,7 @@ object NaiveBayes{
     * @param filename
     */
   def saveDocumentCategoryProbabilitiesToFile(filename:String): Unit ={
-    println(" --- NAIVE BAYES : Training done. Saving model...")
+    logger.log("Training done. Saving model...")
     val pw = new PrintWriter(new File(filename))
     documentCategoryProbabilities.map { case (code, wordCategoryProbabilities) => wordCategoryProbabilities.toArray.mkString(code + "\t", "\t", "\n") }.seq.foreach(pw.write(_))
     pw.close
@@ -60,7 +61,7 @@ object NaiveBayes{
     * @param filename
     */
   def loadDocumentCategoryProbabilitiesFromFile(filename:String): Unit ={
-    println(" --- NAIVE BAYES : Loading saved model from file")
+    logger.log("Loading saved model from file")
     documentCategoryProbabilities.clear()
     for (line <- Source.fromFile(filename).getLines()) {
       val splitting = line.split("\t")
@@ -91,8 +92,9 @@ object NaiveBayes{
     for (k <- 1 until 10 by 1) {
       val validationResult = getValidationResult(-10-(k*0.1))
 
+
       //compute precision, recall, f1 and averaged f1
-      println(" --- NAIVE BAYES : Computing scores")
+      logger.log(" --- NAIVE BAYES : Computing scores")
       val validationPrecisionRecall = validationResult.map { case (actual, expected) =>
         (actual.intersect(expected).size.toDouble / (actual.size + scala.Double.MinPositiveValue),
           actual.intersect(expected).size.toDouble / (expected.size + scala.Double.MinPositiveValue))
@@ -116,15 +118,15 @@ object NaiveBayes{
   }
 
   def train(): Unit ={
-    println(" --- NAIVE BAYES : Training Model...")
+    logger.log("Training Model...")
     val codes = reader.codes.toList
-    println(" --- NAIVE BAYES : We will train " + codes.length + " codes")
+    logger.log("We will train " + codes.length + " codes")
     codes.foreach(code => documentCategoryProbabilities += code -> DenseVector.ones[Double](reader.reducedDictionarySize))
-    println(" --- NAIVE BAYES : Calculating P(d|c) for every document d, category c pair...")
+    logger.log("Calculating P(d|c) for every document d, category c pair...")
     var i = 0
     documentCategoryProbabilities = documentCategoryProbabilities.map { case (code, wordCategoryProbabilities) =>
       i+=1
-      if (i % 5 == 0) println(" --- NAIVE BAYES : " + i + " codes passed")
+      logger.log(s"$i codes passed", "iPass", 5)
       code -> calculateWordCategoryProbabilities(wordCounts = wordCategoryProbabilities,
         alpha = 1.0,
         code = code,
