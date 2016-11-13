@@ -16,9 +16,12 @@ import scala.io.Source
   */
 object NaiveBayes{
 
+  val topicThreshold = -10.7
+  val countryCodeThreshold = -10.7
+  val industryCodeThreshold = -10.7
   val logger = new Logger("NaiveBayes")
   var documentCategoryProbabilities = scala.collection.mutable.HashMap.empty[String,DenseVector[Double]].par
-  val reader = new Reader(2, 0.2, false) //create reader with no bias
+  val reader = new Reader(2, 0.8, false) //create reader with no bias
 
   /**
     *
@@ -77,19 +80,21 @@ object NaiveBayes{
     * @return
     */
   def getValidationResult(k: Double): List[(Set[String],Set[String])] ={
+    val actual_codes = Set[String](reader.codes.toList:_*).intersect(possibleCodes.fromString("topic"))
     reader.toBagOfWords("validation").map(dp =>
       (documentCategoryProbabilities.map { case (code, wordCategoryProbabilities) =>
         (log(reader.getProbabilityOfCode(code)) + dp.x.dot(wordCategoryProbabilities) / sum(dp.x), code)}
         .toList.sortBy(_._1)
         .filter(_._1 > k)
         .map(_._2)
-        .toSet, dp.y)).toList
+        .toSet.intersect(actual_codes), dp.y.intersect(actual_codes))).toList
   }
 
   def validate(): Unit ={
     logger.log("Running trained model on validation data...")
-    for (k <- -8 until -15 by -1) {
-      val validationResult = getValidationResult(k)
+    for (k <- 1 until 10 by 1) {
+      val validationResult = getValidationResult(-10-(k*0.1))
+
 
       //compute precision, recall, f1 and averaged f1
       logger.log("Computing scores")
@@ -99,7 +104,7 @@ object NaiveBayes{
       }
       val validationF1 = validationPrecisionRecall
         .map { case (precision, recall) => 2 * precision * recall / (precision + recall + scala.Double.MinPositiveValue) }
-      logger.log("k=" + k + " F1-Average=" + validationF1.sum / validationF1.length)
+      logger.log("k=" + (-10-(k*0.1)).toString() + " F1-Average=" + validationF1.sum / validationF1.length)
     }
   }
 
@@ -115,16 +120,19 @@ object NaiveBayes{
       .filter(_._1 > k).map(_._2).toSet)
   }
 
+  /**
+    *
+    */
   def train(): Unit ={
     logger.log("Training Model...")
-    val codes = reader.codes.toList
-    logger.log("We will train " + codes.length + " codes")
-    codes.foreach(code => documentCategoryProbabilities += code -> DenseVector.ones[Double](reader.reducedDictionarySize))
-    logger.log("Calculating P(d|c) for every document d, category c pair...")
-    var i = 0
+    val topicCodes = Set[String](reader.codes.toList: _*).intersect(possibleCodes.fromString("topic"))
+    logger.log(topicCodes.size + " topic codes will be trained...")
+    topicCodes.foreach(code => documentCategoryProbabilities += code -> DenseVector.ones[Double](reader.reducedDictionarySize))
+    logger.log("Calculating P(d|c) for every (document, category) pair...")
+    var codesDone = Set[String]()
     documentCategoryProbabilities = documentCategoryProbabilities.map { case (code, wordCategoryProbabilities) =>
-      i+=1
-      logger.log(s"$i codes passed", "iPass", 5)
+      logger.log(codesDone.size + " codes passed", "iPass", 5)
+      codesDone += code
       code -> calculateWordCategoryProbabilities(wordCounts = wordCategoryProbabilities,
         alpha = 1.0,
         code = code,
@@ -140,8 +148,8 @@ object NaiveBayes{
   def main(args: Array[String]): Unit = {
 
     train()
-    saveDocumentCategoryProbabilitiesToFile("./src/main/resources/data/model/bayesPar_2_0.2_stemmed.csv")
-    //loadDocumentCategoryProbabilitiesFromFile("./src/main/resources/data/model/bayesPar_2_0.8.csv")
+    saveDocumentCategoryProbabilitiesToFile("./src/main/resources/data/model/bayesPar_2_0.8_stemmed.csv")
+    //loadDocumentCategoryProbabilitiesFromFile("./src/main/resources/data/model/bayesPar_2_0.2_stemmed.csv")
     validate()
 
   }
