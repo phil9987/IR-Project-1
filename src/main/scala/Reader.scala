@@ -52,9 +52,9 @@ abstract class BaseReader()
 
   /**
     * Filters words.
-    * Current implementation removed stopwords and words not made up from letters and '-'.
+    * Current implementation removes stopwords and words not made up from letters and '-'.
     * @param word
-    * @return Boolean indicating wheter to remove the word or not.
+    * @return Boolean indicating whether to remove the word or not.
     */
   def filterWords(word: String) = !stopWords.contains(word) && pattern.matcher(word).matches()
 
@@ -75,9 +75,16 @@ abstract class BaseReader()
       doc.codes.foreach(codes += _)
       doc.codes.foreach(x => numDocsPerCode(x) = 1 + numDocsPerCode.getOrElse(x,0))
     }
+
   }
 
   init()
+
+  def pruneRareCodes(k: Int): Unit ={
+    logger.log(s"number of codes before pruning rare ones: ${codes.size}")
+    codes = codes -- Set[String](numDocsPerCode.filter(x => x._2 < 10).keys.toList: _*)
+    logger.log(s"number of codes after pruning rare ones: ${codes.size}")
+  }
 
 
   /**
@@ -193,7 +200,7 @@ class TfIDfReader(topNDocs: Int, bias: Boolean = true) extends BaseReader {
 
   logger.log("Finding top documents...")
   var top = wordCounts.toList
-  if (topNDocs <= 0)
+  if (topNDocs > 0)
     top =  topNs(wordCounts.toList,topNDocs);
   logger.log("Calculating idf")
   val idf = top.par.map(x => (x._1, Math.log( docCount.toDouble/x._2
@@ -201,6 +208,7 @@ class TfIDfReader(topNDocs: Int, bias: Boolean = true) extends BaseReader {
   ))).toMap.seq
   val dictionary = idf.keys.toList.sorted.zipWithIndex.toMap
   val outLength = dictionary.size + (if (bias) 1 else 0)
+  logger.log(s"Dictionary size = $outLength")
 
   /**
     * Load the datapoints for a given stream of documents.
@@ -208,7 +216,6 @@ class TfIDfReader(topNDocs: Int, bias: Boolean = true) extends BaseReader {
     * @return Stream of datapoints.
     */
   override   def toBagOfWords(input: Stream[XMLDocument]): Stream[DataPoint] = {
-    logger.log("toBagOfWords")
     input.map(doc => {
       val v = new VectorBuilder[Double](outLength)
       val actualWords = doc.tokens.map(tokenToWord).filter(filterWords).filter(dictionary.contains)
