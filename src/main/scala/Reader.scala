@@ -151,7 +151,6 @@ class Reader(minOccurrence: Int = 1,
     * @return Stream of datapoints.
     */
   override def toBagOfWords(input: Stream[XMLDocument]): Stream[DataPoint] = {
-    logger.log("toBagOfWords")
     input.map(doc => {
       val v = new VectorBuilder[Double](outLength)
       doc.tokens.map(tokenToWord).filter(filterWords).groupBy(identity).mapValues(_.size).toList
@@ -168,6 +167,7 @@ class Reader(minOccurrence: Int = 1,
 class TfIDfReader(topNDocs: Int, bias: Boolean = true) extends BaseReader {
   private val logger = new Logger("TfIDfReader")
   logger.log(s"Starting TfIDfReader topN=$topNDocs bias=$bias")
+  val reducedDictionarySize = topNDocs
 
   //fast version of sort().take(n)
   //based on
