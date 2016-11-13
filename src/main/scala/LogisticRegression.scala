@@ -33,7 +33,7 @@ object LogisticRegression{
     for (labelType <- labelTypes) {
 
       val documents = reader.toBagOfWords(setName)
-      val codes = Set[String](reader.codes.toList: _*).intersect(possibleCodes.fromString(labelType))
+      val codes = Set[String](reader.codes.toList: _*).intersect(Codes.fromString(labelType))
       thetasMap(labelType) = Map() ++ codes.map((_, DenseVector.fill[Double](reader.outLength)(0.0))).toMap
       var learning_rate = 1.0
       var totalCodesAssigned = 0
@@ -45,6 +45,7 @@ object LogisticRegression{
         }
         else {
           return theta - doc.x * (learning_rate * alpha * (logistic(theta.dot(doc.x))))
+
         }
       }
 
@@ -82,7 +83,7 @@ object LogisticRegression{
       for (validationDoc <- reader.toBagOfWords("validation")) {
         if (!assignedCodes.contains(validationDoc.itemId)) {
           assignedCodes(validationDoc.itemId) = Set()
-          realCodes(validationDoc.itemId) = possibleCodes.fromString("industry").intersect(validationDoc.y)
+          realCodes(validationDoc.itemId) = Set(Codes.fromString("industry").toArray:_*).intersect(validationDoc.y)
         }
         assignedCodes(validationDoc.itemId) ++= //adds the codes
           (thetasMap(labelType).map { case (code, theta) => (logistic(theta.dot(validationDoc.x)), code)

@@ -1,11 +1,25 @@
+import com.sun.xml.internal.ws.fault.CodeType
 
-import scala.collection.mutable.Set
+object CodeTypes extends Enumeration {
+  val Topic, Industry, Country, ALL = Value
+}
 
-object possibleCodes {
-  def fromString(s : String): scala.collection.mutable.Set[String] = {
-    if (s == "topic")  topicCodes
+
+object Codes {
+
+  def fromEnum(e : CodeTypes.Value) = {
+    if (e == CodeTypes.Topic) topicCodes
+    else if (e == CodeTypes.Country) countryCodes
+    else if (e == CodeTypes.Industry) industyCodes
+    else if (e == CodeTypes.ALL) countryCodes++industyCodes++topicCodes
+    else Set()
+  }
+
+  def fromString(s : String): Set[String] = {
+    if (s == "topic")topicCodes
     else if (s == "industry") industyCodes
     else if (s == "country") countryCodes
+    else if (s == "all") countryCodes++industyCodes++topicCodes
     else Set()
   }
   def topicCodes = Set(
