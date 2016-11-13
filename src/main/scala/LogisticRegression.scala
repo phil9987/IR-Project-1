@@ -31,7 +31,7 @@ object LogisticRegression{
 
         val documents = reader.toBagOfWords(setName)
 
-        val codes = Set[String](reader.codes.toList: _*).intersect(possibleCodes.fromString(labelType))
+        val codes = Set[String](reader.codes.toList: _*).intersect(Codes.fromString(labelType))
         thetasMap(labelType) = Map() ++ codes.map((_, DenseVector.fill[Double](reader.reducedDictionarySize + 1)(0.0))).toMap
         var learning_rate = 1.0
 
