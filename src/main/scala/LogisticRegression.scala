@@ -12,8 +12,9 @@ object LogisticRegression{
   def main(args : Array[String]): Unit ={
 
     train("train")
-    /*
-    var  possiblecutoffs = List(0.50, 0.505, 0.51, 0.515, 0.52, 0.525, 0.53, 0.535, 0.54, 0.545, 0.55, 0.555, 0.56, 0.565, 0.57, 0.575, 0.58, 0.585, 0.59, 0.595, 0.60)
+/*
+    var  possiblecutoffs = List(0.68, 0.69, 0.70, 0.715, 0.72, 0.725, 0.73, 0.735, 0.74, 0.745, 0.75, 0.755, 0.76, 0.765, 0.77, 0.775, 0.78, 0.785, 0.79, 0.795, 0.80)
+    //var possiblecutoffs = List(0.70, 0.60, 0.70, 0.80, 0.90)
     var resultingScores = scala.collection.mutable.Buffer(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0)
     var index = 0
     for (cutoff  <- possiblecutoffs) {
@@ -21,23 +22,22 @@ object LogisticRegression{
       index += 1
     }
 
-    validate("0.525")
     println(s"RESULTING SCORES : $resultingScores")
-    */
-    validate(cutoff = 0.525)
-    predict(cutoff = 0.525)
+*/
+    validate(cutoff = 0.70)
+    predict(cutoff = 0.70 )
   }
   def logistic(x: Double): Double = {
     1.0 / (1.0 + Math.exp(-x))
   }
 
  // var labelTypes = List("topic", "industry", "country")
-  var labelTypes = List("country")
+  var labelTypes = List("topic")
 
   var thetasMap : Map[String, Map[String, DenseVector[Double]]] = Map()
   var cutoffMap : Map[String, Double] = Map()
 
-  var reader = new TitleReader(20 , 1, true)
+  var reader = new Reader(300, 1, true)
   //var reader = new TfIDfReader(40000)
 
   def train(setName : String): Unit = {
@@ -100,7 +100,7 @@ object LogisticRegression{
         if (!assignedCodes.contains(validationDoc.itemId)) {
           assignedCodes(validationDoc.itemId) = Set()
           //realCodes(validationDoc.itemId) = Set(validationDoc.y.toArray:_*)
-          realCodes(validationDoc.itemId) = Set(Codes.fromString("country").toArray:_*).intersect(validationDoc.y)
+          realCodes(validationDoc.itemId) = Set(Codes.fromString("topic").toArray:_*).intersect(validationDoc.y)
         }
         assignedCodes(validationDoc.itemId) ++= //adds the codes
           (thetasMap(labelType).map { case (code, theta) => (logistic(theta.dot(validationDoc.x)), code)
@@ -112,7 +112,7 @@ object LogisticRegression{
       assignedCodes.foreach {
         case (itemid, assigned) =>
         buf += new Tuple2(assignedCodes(itemid) , realCodes(itemid))
-          println(s"${assignedCodes(itemid)}" + s"${realCodes(itemid)}")
+          //println(s"${assignedCodes(itemid)}" + s"${realCodes(itemid)}")
       }
 
       logger.log(s"average codes assigned per doc in total: ${1.0 * assignedCodes.map(_._2.size).sum / assignedCodes.size}")
@@ -133,6 +133,10 @@ object LogisticRegression{
   }
 
   def predict(cutoff:Double) : Unit = {
+      var myCut = cutoff
+      if (cutoff == -1){
+        myCut = cutoffMap("topic")
+      }
       var assignedCodes: Map[Int,Set[String]] = Map()
       //assign codes
       for (labelType <- labelTypes) {
@@ -142,14 +146,14 @@ object LogisticRegression{
           }
           assignedCodes(testDoc.itemId) ++= //adds the codes
             (thetasMap(labelType).map { case (code, theta) => (logistic(theta.dot(testDoc.x)), code)
-            }.filter(_._1 > cutoff).map(_._2).toSet)
+            }.filter(_._1 > myCut).map(_._2).toSet)
         }
 
       }
 
       import java.io.PrintWriter
       import java.io.File
-      val pw = new PrintWriter(new File("countrycodes.txt"))
+      val pw = new PrintWriter(new File("topiccodes.txt"))
       assignedCodes.toSeq.sortBy(_._1).foreach{ case(id, codes) =>
         var line = s"$id "
         codes.foreach(x=> line = line.concat(x + " "))
@@ -157,5 +161,4 @@ object LogisticRegression{
       }
       pw.close()
     }
-
 }
