@@ -1,5 +1,8 @@
+
+import scala.collection.mutable.Set
+
 object possibleCodes {
-  def fromString(s : String): Set[String] = {
+  def fromString(s : String): scala.collection.mutable.Set[String] = {
     if (s == "topic")  topicCodes
     else if (s == "industry") industyCodes
     else if (s == "country") countryCodes
