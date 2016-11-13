@@ -55,7 +55,7 @@ class SVM(lambda: Double)
     val validationF1 = validationPrecisionRecall
       .map { case (precision, recall) => 2 * precision * recall / (precision + recall + scala.Double.MinPositiveValue) }
     logger.log("Average Precision: " + validationPrecisionRecall.map(_._1).sum / validationPrecisionRecall.length)
-    logger.log("Average Recall: " + validationPrecisionRecall.map(_.__2).sum / validationPrecisionRecall.length)
+    logger.log("Average Recall: " + validationPrecisionRecall.map(_._2).sum / validationPrecisionRecall.length)
     logger.log("Average F1: " + validationF1.sum / validationF1.length)
   }
 

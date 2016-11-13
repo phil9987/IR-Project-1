@@ -60,7 +60,7 @@ abstract class BaseReader()
 
 
   protected val wordCounts = scala.collection.mutable.HashMap[String, Int]()
-  protected var docCount = 0
+  var docCount = 0
   protected val numDocsPerCode = scala.collection.mutable.HashMap[String, Int]()
   var codes = scala.collection.mutable.Set[String]()
 
