@@ -1,8 +1,25 @@
-object possibleCodes {
+import com.sun.xml.internal.ws.fault.CodeType
+
+object CodeTypes extends Enumeration {
+  val Topic, Industry, Country, ALL = Value
+}
+
+
+object Codes {
+
+  def fromEnum(e : CodeTypes.Value) = {
+    if (e == CodeTypes.Topic) topicCodes
+    else if (e == CodeTypes.Country) countryCodes
+    else if (e == CodeTypes.Industry) industyCodes
+    else if (e == CodeTypes.ALL) countryCodes++industyCodes++topicCodes
+    else Set()
+  }
+
   def fromString(s : String): Set[String] = {
-    if (s == "topic")  topicCodes
+    if (s == "topic")topicCodes
     else if (s == "industry") industyCodes
     else if (s == "country") countryCodes
+    else if (s == "all") countryCodes++industyCodes++topicCodes
     else Set()
   }
   def topicCodes = Set(

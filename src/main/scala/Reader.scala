@@ -1,5 +1,4 @@
 import java.io.File
-
 import com.github.aztek.porterstemmer.PorterStemmer
 import breeze.linalg.{DenseVector, SparseVector, Vector, VectorBuilder}
 import ch.ethz.dal.tinyir.io.ReutersRCVStream
@@ -18,6 +17,7 @@ import ch.ethz.dal.tinyir.processing.StopWords.stopWords
   * @param y      Lables
   */
 case class DataPoint(itemId: Int, x: SparseVector[Double], y: Set[String])
+
 
 /**
   * Base class for the reader.
@@ -57,7 +57,6 @@ abstract class BaseReader()
     * @return Boolean indicating wheter to remove the word or not.
     */
   def filterWords(word: String) = !stopWords.contains(word) && pattern.matcher(word).matches()
-
 
 
   protected val wordCounts = scala.collection.mutable.HashMap[String, Int]()
@@ -128,7 +127,6 @@ abstract class BaseReader()
   *                         are discarded. Should be in (0, 1].
   * @param bias             Indicates whether to include an extra 1 in bag-of-words vectors
   */
-
 class Reader(minOccurrence: Int = 1,
              maxOccurrenceRate: Double = 0.2,
              bias: Boolean = true) extends BaseReader {
@@ -194,7 +192,9 @@ class TfIDfReader(topNDocs: Int, bias: Boolean = true) extends BaseReader {
   }
 
   logger.log("Finding top documents...")
-  val top =  topNs(wordCounts.toList,topNDocs);
+  var top = wordCounts.toList
+  if (topNDocs <= 0)
+    top =  topNs(wordCounts.toList,topNDocs);
   logger.log("Calculating idf")
   val idf = top.par.map(x => (x._1, Math.log( docCount.toDouble/x._2
     .toDouble

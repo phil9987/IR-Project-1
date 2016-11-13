@@ -80,7 +80,7 @@ object NaiveBayes{
     * @return
     */
   def getValidationResult(k: Double): List[(Set[String],Set[String])] ={
-    val actual_codes = Set[String](reader.codes.toList:_*).intersect(possibleCodes.fromString("topic"))
+    val actual_codes = Set[String](reader.codes.toList:_*).intersect(Codes.fromString("topic"))
     reader.toBagOfWords("validation").map(dp =>
       (documentCategoryProbabilities.map { case (code, wordCategoryProbabilities) =>
         (log(reader.getProbabilityOfCode(code)) + dp.x.dot(wordCategoryProbabilities) / sum(dp.x), code)}
@@ -125,7 +125,7 @@ object NaiveBayes{
     */
   def train(): Unit ={
     logger.log("Training Model...")
-    val topicCodes = Set[String](reader.codes.toList: _*).intersect(possibleCodes.fromString("topic"))
+    val topicCodes = Set[String](reader.codes.toList: _*).intersect(Codes.fromString("topic"))
     logger.log(topicCodes.size + " topic codes will be trained...")
     topicCodes.foreach(code => documentCategoryProbabilities += code -> DenseVector.ones[Double](reader.reducedDictionarySize))
     logger.log("Calculating P(d|c) for every (document, category) pair...")
