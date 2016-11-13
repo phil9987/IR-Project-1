@@ -32,7 +32,7 @@ object LogisticRegression{
   var thetasMap : Map[String, Map[String, DenseVector[Double]]] = Map()
   var cutoffMap : Map[String, Double] = Map()
 
-  var reader = new Reader(50 , 1, true)
+  var reader = new TitleReader(20 , 1, true)
   //var reader = new TfIDfReader(40000)
 
   def train(setName : String): Unit = {

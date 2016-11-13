@@ -4,8 +4,8 @@ import breeze.linalg.{DenseVector, SparseVector, Vector, VectorBuilder}
 import ch.ethz.dal.tinyir.io.ReutersRCVStream
 import ch.ethz.dal.tinyir.processing.XMLDocument
 import ch.ethz.dal.tinyir.processing.StopWords.stopWords
-import ch.ethz.dal.tinyir.processing.Tokenizer
 
+import ch.ethz.dal.tinyir.processing.Tokenizer
 /**
   * Created by marc on 31/10/16.
   */
@@ -17,16 +17,15 @@ import ch.ethz.dal.tinyir.processing.Tokenizer
   * @param x      Bag of Words
   * @param y      Lables
   */
-case class DataPoint(itemId: Int, x: SparseVector[Double], y: Set[String])
 
 
 /**
   * Base class for the reader.
   * Implements structure and functions common to all implementation of Reader.
   */
-abstract class BaseReader()
+abstract class BaseTitleReader()
 {
-  private val logger = new Logger("BaseReader")
+  private val logger = new Logger("BaseTitleReader")
 
   //fast version of sort().take(n)
   //based on
@@ -97,7 +96,6 @@ abstract class BaseReader()
     docCount = r.length
     logger.log("init: Counting word- and code-occurences in training corpus...")
     for (doc <- r.stream) {
-      println(Tokenizer.tokenize(doc.title)+ "  " + doc.codes)
       Tokenizer.tokenize(doc.title).distinct.map(tokenToWord).filter(filterWords).distinct.foreach(x => wordCounts(x) = 1 + wordCounts.getOrElse(x, 0))
       doc.codes.foreach(codes += _)
       doc.codes.foreach(x => numDocsPerCode(x) = 1 + numDocsPerCode.getOrElse(x,0))
@@ -161,10 +159,10 @@ abstract class BaseReader()
   *                         are discarded. Should be in (0, 1].
   * @param bias             Indicates whether to include an extra 1 in bag-of-words vectors
   */
-class Reader(minOccurrence: Int = 1,
+class TitleReader(minOccurrence: Int = 1,
              maxOccurrenceRate: Double = 0.2,
-             bias: Boolean = true) extends BaseReader {
-  private val logger = new Logger("Reader")
+             bias: Boolean = true) extends BaseTitleReader {
+  private val logger = new Logger("TitleReader")
   logger.log(s"Starting Reader minOccurrence=$minOccurrence, maxOccurrenceRate=$maxOccurrenceRate, bias=$bias")
 
   logger.log("Filtering out words...")
@@ -175,7 +173,6 @@ class Reader(minOccurrence: Int = 1,
     .keys.toList.sorted.zipWithIndex.toMap
   val reducedDictionarySize = dictionary.size
   logger.log(s"=> reduced dictionary size from $originalDictionarySize to $reducedDictionarySize")
-  print(dictionary)
   logger.log(s"=> Total number of considered codes : ${codes.size}")
   val outLength = reducedDictionarySize + (if (bias) 1 else 0)
 
@@ -198,8 +195,58 @@ class Reader(minOccurrence: Int = 1,
   }
 }
 
+/**
+  * Reads all samples from the training data and forms a dictionary from that.
+  * Provides methods to read other data sets as streams of bag-of-words-vectors
+  * (based on the trained dictionary)
+  *
+  * @param minOccurrence     Minimum number of documents that a word must be included in.
+  * @param maxOccurrenceRate Words that are in more than maxOccurrenceRate*nrDocuments documents
+  *                         are discarded. Should be in (0, 1].
+  * @param bias             Indicates whether to include an extra 1 in bag-of-words vectors
+  */
+class TitleReaderTfIdfWeighted(minOccurrence: Int = 1,
+                          maxOccurrenceRate: Double = 0.2,
+                          bias: Boolean = true) extends BaseTitleReader {
+  private val logger = new Logger("TitleReader")
+  logger.log(s"Starting Reader minOccurrence=$minOccurrence, maxOccurrenceRate=$maxOccurrenceRate, bias=$bias")
 
-class TfIDfReader(topNDocs: Int, bias: Boolean = true) extends BaseReader {
+  logger.log("Calculating idf")
+  val idf = wordCounts.toList.par.map(x => (x._1, Math.log( docCount.toDouble/x._2
+    .toDouble
+  ))).toMap.seq
+  logger.log("Filtering out words...")
+  private val acceptableCount = maxOccurrenceRate * docCount
+  val originalDictionarySize = wordCounts.size
+  //compute dictionary (remove unusable words)
+  val dictionary = wordCounts.filter(x => x._2 <= acceptableCount && x._2 >= minOccurrence)
+    .keys.toList.sorted.zipWithIndex.toMap
+  val reducedDictionarySize = dictionary.size
+  logger.log(s"=> reduced dictionary size from $originalDictionarySize to $reducedDictionarySize")
+  logger.log(s"=> Total number of considered codes : ${codes.size}")
+  val outLength = reducedDictionarySize + (if (bias) 1 else 0)
+
+  /**
+    * Load the datapoints for a given stream of documents.
+    *
+    * @param input The documents.
+    * @return Stream of datapoints.
+    */
+  override def toBagOfWords(input: Stream[XMLDocument]): Stream[DataPoint] = {
+    input.map(doc => {
+      val v = new VectorBuilder[Double](outLength)
+      Tokenizer.tokenize(doc.title).map(tokenToWord).filter(filterWords).groupBy(identity).mapValues(_.size).toList
+        .map { case (key, count) => if (dictionary.contains(key) && idf.contains(key)) (dictionary(key), count.toDouble*idf(key)) else (-1, 0.0) }
+        .filter(_._1 >= 0).sortBy(_._1)
+        .foreach { case (index, count) => v.add(index, count) }
+      if (bias) v.add(reducedDictionarySize, 1) //bias
+      DataPoint(doc.ID, v.toSparseVector(true, true), doc.codes)
+    })
+  }
+}
+
+
+class TfIDfTitleReader(topNDocs: Int, bias: Boolean = true) extends BaseTitleReader {
   private val logger = new Logger("TfIDfReader")
   logger.log(s"Starting TfIDfReader topN=$topNDocs bias=$bias")
   val reducedDictionarySize = if (topNDocs != 0 ) topNDocs else dictionary.size
@@ -224,12 +271,12 @@ class TfIDfReader(topNDocs: Int, bias: Boolean = true) extends BaseReader {
   override   def toBagOfWords(input: Stream[XMLDocument]): Stream[DataPoint] = {
     input.map(doc => {
       val v = new VectorBuilder[Double](outLength)
-      val actualWords = doc.tokens.map(tokenToWord).filter(filterWords).filter(dictionary.contains)
+      val actualWords = Tokenizer.tokenize(doc.title).map(tokenToWord).filter(filterWords).filter(dictionary.contains)
       actualWords.groupBy(identity).mapValues(_.size).toList
         .filter(x => dictionary.contains(x._1))
         .map {
-               case (key, count) => (dictionary(key), idf(key) * count.toDouble / actualWords.length)
-             }.sortBy(_._1)
+          case (key, count) => (dictionary(key), idf(key) * count.toDouble / actualWords.length)
+        }.sortBy(_._1)
         .foreach { case (index, count) => v.add(index, count) }
       if (bias) v.add(outLength - 1, 1) //bias
       val bagOfWordsVector = v.toSparseVector(true, true)
@@ -239,11 +286,11 @@ class TfIDfReader(topNDocs: Int, bias: Boolean = true) extends BaseReader {
 }
 
 
-class PerClassTfIdfReader(topNDocs: Int, bias: Boolean = true) extends BaseReader()
+class PerClassTfIdfTitleReader(topNDocs: Int, bias: Boolean = true) extends BaseReader()
 {
-  val logger = new Logger("PerClassTfIdfReader")
+  val logger = new Logger("PerClassTfIdfTitleReader")
   val perClassWordCount = scala.collection.mutable.HashMap[String, scala.collection.mutable.HashMap[String, Int]]()
-
+  val reducedDictionarySize = topNDocs
   val outLength = topNDocs + (if (bias) 1 else 0)
 
   protected override def init() = {
@@ -253,19 +300,19 @@ class PerClassTfIdfReader(topNDocs: Int, bias: Boolean = true) extends BaseReade
 
   private def setup() = {
     logger.log("Setting up PerClassTfIdfReader")
-     val r = new ReutersRCVStream(new File("./src/main/resources/data/train").getCanonicalPath, ".zip")
+    val r = new ReutersRCVStream(new File("./src/main/resources/data/train").getCanonicalPath, ".zip")
     docCount = r.length
     for (doc <- r.stream) {
       logger.log("Counting documents", "count", 10000)
-      doc.tokens.distinct.map(tokenToWord).filter(filterWords).distinct.foreach(
-       x => {
-         wordCounts(x) = 1 + wordCounts.getOrElse(x, 0)
-         doc.codes.foreach(c => {
-           val table = perClassWordCount.getOrElse(c, scala.collection.mutable.HashMap[String, Int]())
-           table(x) = 1 + table.getOrElse(x, 0)
-           perClassWordCount += c -> table
-         })
-       }
+      Tokenizer.tokenize(doc.title).distinct.map(tokenToWord).filter(filterWords).distinct.foreach(
+        x => {
+          wordCounts(x) = 1 + wordCounts.getOrElse(x, 0)
+          doc.codes.foreach(c => {
+            val table = perClassWordCount.getOrElse(c, scala.collection.mutable.HashMap[String, Int]())
+            table(x) = 1 + table.getOrElse(x, 0)
+            perClassWordCount += c -> table
+          })
+        }
       )
       doc.codes.foreach(codes += _)
       doc.codes.foreach(x => numDocsPerCode(x) = 1 + numDocsPerCode.getOrElse(x,0))
@@ -281,8 +328,8 @@ class PerClassTfIdfReader(topNDocs: Int, bias: Boolean = true) extends BaseReade
     logger.log(s"finding top $topNDocs for code $code")
     var wc : scala.collection.mutable.HashMap[String, Int] = null
     perClassWordCount.synchronized {
-                                     wc = perClassWordCount(code);
-                                   }
+      wc = perClassWordCount(code);
+    }
     var top = wc.toList
     if (topNDocs > 0)
       top =  topNs(wc.toList,topNDocs)
@@ -294,12 +341,12 @@ class PerClassTfIdfReader(topNDocs: Int, bias: Boolean = true) extends BaseReade
 
     input.map(doc => {
       val v = new VectorBuilder[Double](outLength)
-      val actualWords = doc.tokens.map(tokenToWord).filter(filterWords).filter(dictionary.contains)
+      val actualWords = Tokenizer.tokenize(doc.title).map(tokenToWord).filter(filterWords).filter(dictionary.contains)
       actualWords.groupBy(identity).mapValues(_.size).toList
         .filter(x => dictionary.contains(x._1))
         .map {
-               case (key, count) => (dictionary(key), idf(key) * count.toDouble / actualWords.length)
-             }.sortBy(_._1)
+          case (key, count) => (dictionary(key), idf(key) * count.toDouble / actualWords.length)
+        }.sortBy(_._1)
         .foreach { case (index, count) => v.add(index, count) }
       if (bias) v.add(outLength - 1, 1) //bias
       val bagOfWordsVector = v.toSparseVector(true, true)
