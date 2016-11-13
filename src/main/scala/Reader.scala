@@ -26,6 +26,31 @@ case class DataPoint(itemId: Int, x: SparseVector[Double], y: Set[String])
 abstract class BaseReader()
 {
   private val logger = new Logger("BaseReader")
+
+  //fast version of sort().take(n)
+  //based on
+  //https://stackoverflow.com/questions/8274726/top-n-items-in-a-list-including-duplicates
+  def topNs(xs: TraversableOnce[Tuple2[String,Int]], n: Int) = {
+    var ss = List[Tuple2[String,Int]]()
+    var max = Int.MinValue
+    var len = 0
+    xs foreach { e =>
+      if (len < n || e._2 < max) {
+        ss = (e :: ss).sorted
+        max = ss.head._2
+        len += 1
+      }
+      if (len > n) {
+        ss = ss.tail
+        max = ss.head._2
+        len -= 1
+      }
+    }
+    ss
+  }
+
+
+
   //cache used by cachedStem
   protected val stemmingCache = scala.collection.mutable.HashMap[String, String]()
 
@@ -174,29 +199,7 @@ class Reader(minOccurrence: Int = 1,
 class TfIDfReader(topNDocs: Int, bias: Boolean = true) extends BaseReader {
   private val logger = new Logger("TfIDfReader")
   logger.log(s"Starting TfIDfReader topN=$topNDocs bias=$bias")
-  val reducedDictionarySize = topNDocs
-
-  //fast version of sort().take(n)
-  //based on
-  //https://stackoverflow.com/questions/8274726/top-n-items-in-a-list-including-duplicates
-  def topNs(xs: TraversableOnce[Tuple2[String,Int]], n: Int) = {
-    var ss = List[Tuple2[String,Int]]()
-    var max = Int.MinValue
-    var len = 0
-    xs foreach { e =>
-      if (len < n || e._2 < max) {
-        ss = (e :: ss).sorted
-        max = ss.head._2
-        len += 1
-      }
-      if (len > n) {
-        ss = ss.tail
-        max = ss.head._2
-        len -= 1
-      }
-    }
-    ss
-  }
+  val reducedDictionarySize = if (topNDocs != 0 ) topNDocs else dictionary.size
 
   logger.log("Finding top documents...")
   var top = wordCounts.toList
@@ -230,4 +233,76 @@ class TfIDfReader(topNDocs: Int, bias: Boolean = true) extends BaseReader {
       DataPoint(doc.ID, breeze.linalg.normalize(bagOfWordsVector), doc.codes.intersect(codes))
     })
   }
+}
+
+
+class PerClassTfIdfReader(topNDocs: Int, bias: Boolean = true) extends BaseReader()
+{
+  val logger = new Logger("PerClassTfIdfReader")
+  val perClassWordCount = scala.collection.mutable.HashMap[String, scala.collection.mutable.HashMap[String, Int]]()
+
+  val outLength = topNDocs + (if (bias) 1 else 0)
+
+  protected override def init() = {
+    //we don't want standard init
+  }
+  //instead we use setup
+
+  private def setup() = {
+    logger.log("Setting up PerClassTfIdfReader")
+     val r = new ReutersRCVStream(new File("./src/main/resources/data/train").getCanonicalPath, ".zip")
+    docCount = r.length
+    for (doc <- r.stream) {
+      logger.log("Counting documents", "count", 10000)
+      doc.tokens.distinct.map(tokenToWord).filter(filterWords).distinct.foreach(
+       x => {
+         wordCounts(x) = 1 + wordCounts.getOrElse(x, 0)
+         doc.codes.foreach(c => {
+           val table = perClassWordCount.getOrElse(c, scala.collection.mutable.HashMap[String, Int]())
+           table(x) = 1 + table.getOrElse(x, 0)
+           perClassWordCount += c -> table
+         })
+       }
+      )
+      doc.codes.foreach(codes += _)
+      doc.codes.foreach(x => numDocsPerCode(x) = 1 + numDocsPerCode.getOrElse(x,0))
+    }
+  }
+  setup()
+
+
+  def toBagOfWords(code: String, input: Stream[XMLDocument]):
+  Stream[DataPoint]
+  = {
+    logger.log("toBagOfWords")
+    logger.log(s"finding top $topNDocs for code $code")
+    var top = perClassWordCount(code).toList
+    if (topNDocs > 0)
+      top =  topNs(perClassWordCount(code).toList,topNDocs)
+    logger.log("Calculating idf, dictionary")
+    val idf = top.par.map(x => (x._1, Math.log( docCount.toDouble/x._2
+      .toDouble
+    ))).toMap.seq
+    val dictionary = idf.keys.toList.sorted.zipWithIndex.toMap
+
+    input.map(doc => {
+      val v = new VectorBuilder[Double](outLength)
+      val actualWords = doc.tokens.map(tokenToWord).filter(filterWords).filter(dictionary.contains)
+      actualWords.groupBy(identity).mapValues(_.size).toList
+        .filter(x => dictionary.contains(x._1))
+        .map {
+               case (key, count) => (dictionary(key), idf(key) * count.toDouble / actualWords.length)
+             }.sortBy(_._1)
+        .foreach { case (index, count) => v.add(index, count) }
+      if (bias) v.add(outLength - 1, 1) //bias
+      val bagOfWordsVector = v.toSparseVector(true, true)
+      DataPoint(doc.ID, breeze.linalg.normalize(bagOfWordsVector), doc.codes.intersect(codes))
+    })
+  }
+
+  def  toBagOfWords(code :String, collectionName: String): Stream[DataPoint] = {
+    toBagOfWords(code, new ReutersRCVStream(
+      new File("./src/main/resources/data/" + collectionName).getCanonicalPath, ".zip").stream)
+  }
+
 }
