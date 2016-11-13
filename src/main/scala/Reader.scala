@@ -1,8 +1,6 @@
 import java.io.File
 
 import com.github.aztek.porterstemmer.PorterStemmer
-//import scala.util.{Try, Success, Failure
-
 import breeze.linalg.{DenseVector, SparseVector, Vector, VectorBuilder}
 import ch.ethz.dal.tinyir.io.ReutersRCVStream
 import ch.ethz.dal.tinyir.processing.XMLDocument
@@ -12,14 +10,14 @@ import ch.ethz.dal.tinyir.processing.StopWords.stopWords
   * Created by marc on 31/10/16.
   */
 
-
 /**
   * Represents one data item in our project.i
-  * Consints of x, the bag-of-words-vector and y, the set of codes.
-  * @param x Bag of Words
-  * @param y Lables
+  * Consints of x, the bag-of-words-vector and y, the set of codes and the id of the document.
+  * @param itemId The Id of the document
+  * @param x      Bag of Words
+  * @param y      Lables
   */
-case class DataPoint(itemid: Int, x: SparseVector[Double], y: Set[String])
+case class DataPoint(itemId: Int, x: SparseVector[Double], y: Set[String])
 
 /**
   * Reads all samples from the training data and forms a dictionary from that.
@@ -27,27 +25,47 @@ case class DataPoint(itemid: Int, x: SparseVector[Double], y: Set[String])
   * (based on the trained dictionary)
   *
   * @param minOccurrence     Minimum number of documents that a word must be included in.
-  * @param maxOccurrenceRate Words that are in more than maxOccuranceRate*nrDocuments documents
-  *                         are discared. Should be in (0, 1].
-  * @param bias             Indicates wheter to include an extra 1 in bag-of-words vectors
+  * @param maxOccurrenceRate Words that are in more than maxOccurrenceRate*nrDocuments documents
+  *                         are discarded. Should be in (0, 1].
+  * @param bias             Indicates whether to include an extra 1 in bag-of-words vectors
   */
 class Reader(minOccurrence: Int = 1,
              maxOccurrenceRate: Double = 0.2,
              bias: Boolean = true) {
 
 
+  /**
+    * Cache used by cachedStem.
+    */
   val stemmingCache = scala.collection.mutable.HashMap[String, String]()
+
+  /**
+    * Translate a token to its stemmed base word.
+    * Uses a cache (HashMap) in order not to duplicate calculations.
+    * @param token
+    * @return stemmed word.
+    */
   def cachedStem(token: String) = {
     if (!stemmingCache.contains(token)) stemmingCache(token) = PorterStemmer.stem(token.toLowerCase)
     stemmingCache(token)
   }
 
+  /**
+    * Given a token, transform it to a word.
+    * @param token
+    * @return word
+    */
   def tokenToWord(token: String) = cachedStem(token)
 
   val pattern = "[\\p{L}\\-]+".r.pattern
+
+  /**
+    * Filters words.
+    * Current implementation removed stopwords and words not made up from letters and '-'.
+    * @param word
+    * @return Boolean indicating wheter to remove the word or not.
+    */
   def filterWords(word: String) = !stopWords.contains(word) && pattern.matcher(word).matches()
-
-
 
 
   println(" --- READER : Initializing Stream.")
