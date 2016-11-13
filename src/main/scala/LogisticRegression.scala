@@ -11,20 +11,28 @@ object LogisticRegression{
 
   def main(args : Array[String]): Unit ={
     train("train")
-    validate()
-    predict()
+    var  possiblecutoffs = List(0.50, 0.505, 0.51, 0.515, 0.52, 0.525, 0.53, 0.535, 0.54, 0.545, 0.55, 0.555, 0.56, 0.565, 0.57, 0.575, 0.58, 0.585, 0.59, 0.595, 0.60)
+    var resultingScores = scala.collection.mutable.Buffer(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0)
+    var index = 0
+    for (cutoff  <- possiblecutoffs) {
+      resultingScores(index) = validate(cutoff)
+      index += 1
+    }
+    println(s"RESULTING SCORES : $resultingScores")
+
+    //predict()
   }
   def logistic(x: Double): Double = {
     1.0 / (1.0 + Math.exp(-x))
   }
 
-  //var labelTypes = List("topic", "industry", "country")
-  var labelTypes = List("industry")
+ // var labelTypes = List("topic", "industry", "country")
+  var labelTypes = List("country")
 
   var thetasMap : Map[String, Map[String, DenseVector[Double]]] = Map()
   var cutoffMap : Map[String, Double] = Map()
 
-  var reader = new Reader(5 , 0.3, true)
+  var reader = new Reader(50 , 1, true)
   //var reader = new TfIDfReader(40000)
 
   def train(setName : String): Unit = {
@@ -45,7 +53,6 @@ object LogisticRegression{
         }
         else {
           return theta - doc.x * (learning_rate * alpha * (logistic(theta.dot(doc.x))))
-
         }
       }
 
@@ -64,8 +71,7 @@ object LogisticRegression{
       var averageCodesPerDoc = totalCodesAssigned / 50000.0
       logger.log(s"average codes expected for type $labelType: $averageCodesPerDoc")
       var cut = new cutoffFinder(averageCodesPerDoc / codes.size) //proportion of codes assigned to total codes
-      val validationSet = reader.toBagOfWords("validation")
-      for (validationDoc <- validationSet) {
+      for (validationDoc <- reader.toBagOfWords("validation")) {
         var codeProbability = thetasMap(labelType).seq.foreach {
           case (code, theta) => cut.add(logistic(theta.dot(validationDoc.x)))
         }
@@ -75,26 +81,31 @@ object LogisticRegression{
     }
   }
 
-  def validate() : Unit = {
+  def validate(cutoff: Double = -1) : Double = {
+    var myCut = cutoff
     var assignedCodes: Map[Int,Set[String]] = Map()
     var realCodes : Map[Int, Set[String]] = Map()
     //assign codes
     for (labelType <- labelTypes) {
+      if (myCut == -1){
+        myCut =cutoffMap(labelType)
+      }
+
       for (validationDoc <- reader.toBagOfWords("validation")) {
         if (!assignedCodes.contains(validationDoc.itemId)) {
           assignedCodes(validationDoc.itemId) = Set()
-          realCodes(validationDoc.itemId) = Set(Codes.fromString("industry").toArray:_*).intersect(validationDoc.y)
+          //realCodes(validationDoc.itemId) = Set(validationDoc.y.toArray:_*)
+          realCodes(validationDoc.itemId) = Set(Codes.fromString("country").toArray:_*).intersect(validationDoc.y)
         }
         assignedCodes(validationDoc.itemId) ++= //adds the codes
           (thetasMap(labelType).map { case (code, theta) => (logistic(theta.dot(validationDoc.x)), code)
-          }.filter(_._1 > cutoffMap(labelType)).map(_._2).toSet)
+          }.filter(_._1 > myCut).map(_._2).toSet)
       }
 
     }
       var buf = scala.collection.mutable.ListBuffer.empty[Tuple2[Set[String], Set[String]]]
       assignedCodes.foreach {
         case (itemid, assigned) =>
-        println(s"${assignedCodes(itemid)} + ${realCodes(itemid)}")
         buf += new Tuple2(assignedCodes(itemid) , realCodes(itemid))
       }
 
@@ -112,6 +123,7 @@ object LogisticRegression{
       val validationF1 = validationPrecisionRecall
         .map { case (precision, recall) => 2 * precision * recall / (precision + recall + scala.Double.MinPositiveValue)}
       logger.log(s"score : ${validationF1.sum / 10000.0}")
+    return (validationF1.sum / 10000.0)
   }
 
   def predict() : Unit = {
