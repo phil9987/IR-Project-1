@@ -44,20 +44,8 @@ class cutoffFinder(proportion : Double){
   }
 
   def getCutoff(): Double ={
-    println(s" number of elements in each heap : maxHeap : $maxHeapLength  |    minHeap : $minHeapLength")
-    println(s"total elements $totalLength")
+    //println(s" number of elements in each heap : maxHeap : $maxHeapLength  |    minHeap : $minHeapLength")
+    //println(s"total elements $totalLength")
     (maxHeap.head + minHeap.head) / 2.0
   }
-
-}
-
-object cutoffFinder{
-  def main(args: Array[String]): Unit ={
-    println("testing cutoffFinder implementation")
-    var c = new cutoffFinder(0.5)
-    c.add(0.5)
-    c.add(0.3)
-    println(c.getCutoff())
-  }
-
 }

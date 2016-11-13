@@ -49,6 +49,6 @@ class DataPointIterator(corpusType : String, linkedReader : Reader, bias : Boole
       .filter(_._1 >= 0).sortBy(_._1)
       .foreach { case (index, count) => v.add(index, count) }
     if (bias) v.add(linkedReader.reducedDictionarySize, 1) //bias
-    DataPoint(v.toSparseVector(true, true), xml.codes.intersect(possibleCodes.topicCodes))
+    DataPoint(xml.ID, v.toSparseVector(true, true), xml.codes.intersect(possibleCodes.topicCodes))
   }
 }
