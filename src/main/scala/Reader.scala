@@ -326,9 +326,13 @@ class PerClassTfIdfReader(topNDocs: Int, bias: Boolean = true) extends BaseReade
   = {
     logger.log("toBagOfWords")
     logger.log(s"finding top $topNDocs for code $code")
-    var top = perClassWordCount(code).toList
+    var wc : scala.collection.mutable.HashMap[String, Int] = null
+    perClassWordCount.synchronized {
+                                     wc = perClassWordCount(code);
+                                   }
+    var top = wc.toList
     if (topNDocs > 0)
-      top =  topNs(perClassWordCount(code).toList,topNDocs)
+      top =  topNs(wc.toList,topNDocs)
     logger.log("Calculating idf, dictionary")
     val idf = top.par.map(x => (x._1, Math.log( docCount.toDouble/x._2
       .toDouble

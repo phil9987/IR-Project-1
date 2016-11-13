@@ -17,8 +17,11 @@ object Main{
       LogisticRegression.predict("test")
 */
     }else if (args(0) == "svm"){
-
-
+      val svm = new SVM(0.1)
+      svm.train()
+      svm.validate()
+      svm.predict()
+      //TODO: ask for input path/let prgram use any input path
     }
   }
 }
