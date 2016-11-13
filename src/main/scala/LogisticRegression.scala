@@ -7,6 +7,8 @@ import breeze.linalg.{SparseVector, Vector, DenseVector}
 
 object LogisticRegression{
 
+  val logger = new Logger("LogisticRegression")
+
   def main(args : Array[String]): Unit ={
     train("train")
     validate()
@@ -43,7 +45,7 @@ object LogisticRegression{
           }
         }
 
-        println("LOGREG : Starting learning...")
+        logger.log("Starting learning...")
         var docNr = 0
         var shrink = 0
         for (doc <- documents) {
@@ -51,7 +53,7 @@ object LogisticRegression{
           if (docNr % 10 == 0) {
             shrink += 1
           }
-          printer.print(s"LOGREG --> Updating for doc number : $docNr", 1000)
+          logger.log(s"Updating for doc number : $docNr", "updateFor", 1000)
           thetasMap(labelType) = thetasMap(labelType).map {
             case (code, theta) => code -> update(theta, code, doc)
           }
@@ -60,7 +62,7 @@ object LogisticRegression{
 
         //Find optimal cutoff value such that the proportion of codes assigned is the same in the training and validation sets
         var averageCodesPerDoc = totalCodesAssigned / 50000.0
-        println(s"average codes expected : $averageCodesPerDoc")
+        logger.log(s"average codes expected : $averageCodesPerDoc")
         var cut = new cutoffFinder(averageCodesPerDoc / codes.size) //proportion of codes assigned to total codes
         val validationSet = reader.toBagOfWords("validation")
         docNr = 0
@@ -71,7 +73,7 @@ object LogisticRegression{
           }
         }
         cutoffMap(labelType) = cut.getCutoff()
-        println(s"cutoff value : ${cutoffMap(labelType)}")
+        logger.log(s"cutoff value : ${cutoffMap(labelType)}")
       }
     }
 
@@ -80,29 +82,29 @@ object LogisticRegression{
       //assign codes
       for (labelType <- List("topic", "industry", "country")) {
         for (validationDoc <- reader.toBagOfWords("validation")) {
-          if (!assignedCodes.contains(validationDoc.itemid)) {
-            assignedCodes(validationDoc.itemid) = (Set(), validationDoc.y)
+          if (!assignedCodes.contains(validationDoc.itemId)) {
+            assignedCodes(validationDoc.itemId) = (Set(), validationDoc.y)
           }
-          assignedCodes(validationDoc.itemid) = (assignedCodes(validationDoc.itemid)._1 ++
+          assignedCodes(validationDoc.itemId) = (assignedCodes(validationDoc.itemId)._1 ++
             (thetasMap(labelType).map { case (code, theta) => (logistic(theta.dot(validationDoc.x)), code)
-            }.filter(_._1 > cutoffMap(labelType)).map(_._2).toSet), assignedCodes(validationDoc.itemid)._2)
+            }.filter(_._1 > cutoffMap(labelType)).map(_._2).toSet), assignedCodes(validationDoc.itemId)._2)
         }
 
 
         val averageAssignedCodes = 1.0 * assignedCodes.map(_._2._1.size).sum / assignedCodes.size
-        println(s"average codes assigned : $averageAssignedCodes") //for verification
+        logger.log(s"average codes assigned : $averageAssignedCodes") //for verification
 
 
-        println("Computing score")
+        logger.log("Computing score")
         val validationPrecisionRecall = assignedCodes.map { case (itemid, (actual, expected)) =>
           (actual.intersect(expected).size.toDouble / (actual.size + scala.Double.MinPositiveValue),
             actual.intersect(expected).size.toDouble / (expected.size + scala.Double.MinPositiveValue))
         }
-        println(s"average precision : ${validationPrecisionRecall.map(_._1).sum / validationPrecisionRecall.size}")
-        println(s"average recall   : ${validationPrecisionRecall.map(_._2).sum / validationPrecisionRecall.size}")
+        logger.log(s"average precision : ${validationPrecisionRecall.map(_._1).sum / validationPrecisionRecall.size}")
+        logger.log(s"average recall   : ${validationPrecisionRecall.map(_._2).sum / validationPrecisionRecall.size}")
         val validationF1 = validationPrecisionRecall
           .map { case (precision, recall) => 2 * precision * recall / (precision + recall + scala.Double.MinPositiveValue) }
-        println(s"score : ${validationF1.sum / validationF1.size}")
+        logger.log(s"score : ${validationF1.sum / validationF1.size}")
 
 
       }
