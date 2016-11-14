@@ -27,14 +27,10 @@ object NaiveBayes{
   //val reader = new TitleReader(20,1,false)
   val reader = new Reader(3, 0.2, false) //create reader with no bias
   //val titleReader = new TitleReader(20,1,false)
-  //val reader = new TfIDfReader(2000, false)
-  //val reader = new ReaderTfIdfWeighted(3, 0.8, false)
   //reader.pruneRareCodes(10)
   val topicCodes = Set[String](reader.codes.toList: _*).intersect(Codes.fromString("topic"))
   val industryCodes = Set[String](reader.codes.toList: _*).intersect(Codes.fromString("industry"))
   val countryCodes = Set[String](reader.codes.toList: _*).intersect(Codes.fromString("country"))
-  val debugCodes = Set[String]("GPOL", "GPRO", "GREL", "GSCI", "GSPO", "GTOUR", "GVIO", "GVOTE", "GWEA", "GWELF", "M11", "M12", "M13")
-  val thresholdPerCode = scala.collection.mutable.HashMap.empty[String,Double].par
 
   /**
     *
@@ -62,26 +58,6 @@ object NaiveBayes{
     }
   }
 
-  /**
-    *
-    * @param filename
-    */
-  def saveThresholdPerCodeToFile(filename:String): Unit ={
-    logger.log("saving ThresholdPerCode Hashmap to file...")
-    val out1 = new PrintWriter(new File(filename))
-    thresholdPerCode.map { case (code, threshold) => s"$code ${threshold.toString()}\n"}.seq.foreach(out1.write(_))
-    out1.close()
-  }
-
-  def loadThresholdFromFile(filename:String): Unit ={
-    logger.log("Loading saved thresholds per code from file")
-    thresholdPerCode.clear()
-    for (line <- Source.fromFile(filename).getLines()) {
-      val splitting = line.split(" ")
-      val code = splitting(0)
-      thresholdPerCode += code -> splitting(1).toDouble
-    }
-  }
   /**
     *
     * @param filename
@@ -118,74 +94,9 @@ object NaiveBayes{
         (log(reader.getProbabilityOfCode(code)) + dp.x.dot(wordCategoryProbabilities) / sum(dp.x), code)}
         .toList.sortBy(_._1)
           .filter{ case (score,code)=>
-            (score > thresholdPerCode.getOrElse(code, 0.0) && (topicCodes contains code)) || (score > industryThreshold && (industryCodes contains code)) || (score > countryThreshold && (countryCodes contains code))
+            (score > topicThreshold && (topicCodes contains code)) || (score > industryThreshold && (industryCodes contains code)) || (score > countryThreshold && (countryCodes contains code))
           }
         .map(_._2).toSet, dp.y.intersect(topicCodes))).toList
-  }
-
-  /**
-    *
-    * @param code
-    * @return
-    */
-  def getTrainValidationResult(code: String): List[(Set[String],Set[String])] ={
-    reader.toBagOfWords("train").take(2000).map(dp =>
-      (documentCategoryProbabilities.map { case (code1,wordCategoryProbabilities) =>
-        (log(reader.getProbabilityOfCode(code)) + dp.x.dot(wordCategoryProbabilities) / sum(dp.x), code)}
-          .toList.filter{ case (score,code2)=> (code2.equals(code) && score > topicThreshold)}
-          .map(_._2).toSet, if (dp.y contains code) Set[String](code) else Set[String]())).toList
-  }
-
-  /**
-    *
-    */
-  def trainValidate(): Unit = {
-    logger.log("Training optimal threshold for every code...")
-    for (code <- topicCodes) {
-      var threshold: Double = 0
-      var lastScore: Double = -100.0
-      var f1Average: Double = 0.0
-      var step = 3.0
-      var increasing = 1
-      var stepsDone = 0
-      var codesDone = 0
-      while (increasing == 1 && stepsDone < 20) {
-        topicThreshold = threshold
-        val validationResult = getTrainValidationResult(code)
-        logger.log("Computing scores")
-        val validationPrecisionRecall = validationResult.map { case (actual, expected) =>
-          ((actual.intersect(expected).size.toDouble + scala.Double.MinPositiveValue) / (actual.size + scala.Double.MinPositiveValue),
-            (actual.intersect(expected).size.toDouble + scala.Double.MinPositiveValue) / (expected.size + scala.Double.MinPositiveValue))
-        }
-        val validationF1 = validationPrecisionRecall.map { case (precision, recall)
-        => 2 * precision * recall / (precision + recall + scala.Double.MinPositiveValue)
-        }
-        f1Average = validationF1.sum / validationF1.length
-        logger.log(s"Threshold = $topicThreshold F1-Average= $f1Average")
-        if (f1Average > 0.9 && stepsDone > 5) {
-          increasing = 0
-        } else if (lastScore <= f1Average || f1Average == 0.0) {
-            lastScore = f1Average
-            threshold -= step
-        } else if (step == 3.0) {
-          // f1Average < lastScore -> revert threshold to better score and create smaller steps
-          threshold += step
-          step = 0.3
-          threshold -= step
-        } else {
-          //step == 0.3 & f1Average < lastScore -> not increasing anymore!
-          threshold += step
-          increasing = 0
-        }
-        stepsDone += 1
-      }
-      thresholdPerCode += code -> threshold
-      codesDone += 1
-      logger.log(codesDone + " codes passed", "trainThresholds", 5)
-    }
-
-    saveThresholdPerCodeToFile("./src/main/resources/data/model/thresholdPerCodeTopics")
-
   }
 
   /**
@@ -275,8 +186,6 @@ object NaiveBayes{
     //train()
     //saveDocumentCategoryProbabilitiesToFile("./src/main/resources/data/model/bayesPar_3_0.2_topicCodes_stemmed.csv")
     loadDocumentCategoryProbabilitiesFromFile("./src/main/resources/data/model/bayesPar_3_0.2_topicCodes_stemmed.csv")
-    //trainValidate()
-    loadThresholdFromFile("./src/main/resources/data/model/thresholdPerCodeTopics")
     validate()
     //predict()
 
