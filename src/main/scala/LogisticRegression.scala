@@ -24,8 +24,8 @@ object LogisticRegression{
 
     println(s"RESULTING SCORES : $resultingScores")
 */
-    validate(cutoff = 0.70)
-    predict(cutoff = 0.70 )
+    validate(cutoff = -1)
+    predict(cutoff = -1)
   }
   def logistic(x: Double): Double = {
     1.0 / (1.0 + Math.exp(-x))
