@@ -9,8 +9,8 @@ class SVM(lambda: Double)
 {
   val logger = new Logger("SVM")
   logger.log("Reading Data")
-  val r = new ReaderTfIdfWeighted()
-  val codes = scala.collection.immutable.Set[String](r.codes.toList: _*).take(1)
+  val r = new TitleReader()
+  val codes = scala.collection.immutable.Set[String](r.codes.toList: _*)
   var thetas = codes.map((_, DenseVector.fill[Double](r.outLength)(1.0))).toMap.par
 
   def updateStep(
@@ -40,12 +40,14 @@ class SVM(lambda: Double)
     var step = 1
 
 
-    val docVector = r.toBagOfWords("train").toVector
-    val indices = util.Random.shuffle(0 to docVector.size-1)
-    for (i <- indices) {
-      val dp = docVector(i)
+//    val docVector = r.toBagOfWords("train").toVector
+//    val indices = util.Random.shuffle(0 to docVector.size-1)
+//    for (i <- indices) {
+//      val dp = docVector(i)
+    for(dp <- r.toBagOfWords("train")) {
       logger.log(s"training on documents, step = $step/$nrDocs", "trainStep", 1000)
-      thetas = thetas.map { case (code, theta) => code -> updateStep(theta, dp.x,
+      val x = breeze.linalg.normalize(dp.x)
+      thetas = thetas.map { case (code, theta) => code -> updateStep(theta, x,
                                                                      if (dp.y.contains(code)) 1.0
                                                                      else -1.0,lambda,step)
                           }
@@ -57,7 +59,7 @@ class SVM(lambda: Double)
     logger.log("Validating Data")
     val validationResult = r.toBagOfWords("validation").map(dp =>
                                                               (thetas.map { case (code, theta) => (Math.signum
-                                                              (theta.dot(dp.x)), code)
+                                                              (theta.dot(breeze.linalg.normalize(dp.x))), code)
                                                                           }.filter(_._1 > 0).map(_._2)
                                                                 .toSet, dp.y.intersect(codes) )).toList
     val validationPrecisionRecall = validationResult.map { case (actual, expected) =>
@@ -73,7 +75,7 @@ class SVM(lambda: Double)
 
   def predict(filename : String) = {
     val testResult = r.toBagOfWords("test").map(dp =>  thetas.map { case (code, theta) => (Math.signum
-                                                              (theta.dot(dp.x)), code)
+                                                              (theta.dot(breeze.linalg.normalize(dp.x))), code)
                                                                           }.filter(_._1 > 0).map(_._2)
                                                                 .toSet.mkString(dp.itemId.toString + " ", " ", "\n"))
       .toList
