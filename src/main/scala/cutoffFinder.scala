@@ -29,7 +29,7 @@ class cutoffFinder(proportion : Double){
       minHeapLength += 1.0
     }
 
-    //rebalance
+    //rebalanced
     while (maxHeapLength / totalLength > 1 - prop){
       minHeap.enqueue(maxHeap.dequeue)
       minHeapLength += 1

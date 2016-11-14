@@ -17,7 +17,7 @@ class SVM(lambda: Double)
   //the reader used for the SVM
   //already incorporates the pre-processing
   //different choice of reader and its arguments results in different pre-processing
-  val r = new TitleReader()
+  val r = new TitleReader(0,1,false)
   val codes = scala.collection.immutable.Set[String](r.codes.toList: _*)
 
   //Dictionary that saves a parameter vector (and thereby state of the SVM) for each code
@@ -150,6 +150,6 @@ object SVM {
     svm.train()
     svm.storeThetaToFile("values.csv")
     svm.validate()
-    svm.predict("result_svm.txt")
+    svm.predict("ir-2016-1-project-7-svm.txt")
   }
 }
