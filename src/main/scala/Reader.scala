@@ -240,7 +240,7 @@ class ReaderTfIdfWeighted(minOccurrence: Int = 1,
         .filter(_._1 >= 0).sortBy(_._1)
         .foreach { case (index, count) => v.add(index, count) }
       if (bias) v.add(reducedDictionarySize, 1) //bias
-      DataPoint(doc.ID, v.toSparseVector(true, true), doc.codes)
+      DataPoint(doc.ID, breeze.linalg.normalize(v.toSparseVector(true, true)), doc.codes)
     })
   }
 }
