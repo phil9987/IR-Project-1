@@ -3,6 +3,7 @@ import scala.collection.immutable.ListMap
 import scala.collection.mutable.Map
 import scala.collection.mutable.Set
 
+
 import breeze.linalg.{SparseVector, Vector, DenseVector}
 
 object LogisticRegression{
@@ -10,46 +11,49 @@ object LogisticRegression{
   val logger = new Logger("LogisticRegression")
 
   def main(args : Array[String]): Unit ={
-
     train("train")
-    /*
-    var  possiblecutoffs = List(0.50, 0.505, 0.51, 0.515, 0.52, 0.525, 0.53, 0.535, 0.54, 0.545, 0.55, 0.555, 0.56, 0.565, 0.57, 0.575, 0.58, 0.585, 0.59, 0.595, 0.60)
-    var resultingScores = scala.collection.mutable.Buffer(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0)
-    var index = 0
-    for (cutoff  <- possiblecutoffs) {
-      resultingScores(index) = validate(cutoff)
-      index += 1
-    }
 
-    validate("0.525")
-    println(s"RESULTING SCORES : $resultingScores")
-    */
-    validate(cutoff = 0.525)
-    predict(cutoff = 0.525)
+    //adjust the country cutoff (performance better than the computed cutoff)
+    validate("validation")
+    predict("test")
   }
+
   def logistic(x: Double): Double = {
     1.0 / (1.0 + Math.exp(-x))
   }
 
- // var labelTypes = List("topic", "industry", "country")
-  var labelTypes = List("country")
-
+  //the types of labels to train
+  var labelTypes = List("topic","country")
+  //for a given labelType, holds the map from codes (string) to theta vectors
   var thetasMap : Map[String, Map[String, DenseVector[Double]]] = Map()
+  //for a given labelType, holds the map from codes (string) to the probability cutoff
   var cutoffMap : Map[String, Double] = Map()
+  //the reader to use
+  var reader = new Reader(300, 1, true)
 
-  var reader = new TitleReader(20 , 1, true)
-  //var reader = new TfIDfReader(40000)
-
-  def train(setName : String): Unit = {
+  /**
+  * Trains the model on the dataset specified.
+  * This means that it will change the theta values in the thetasMap as well as the cutoff in cutoffMap
+  * @param setName : The set name to use, i.e. train most of the time
+  */
+  def train(setName : String = "train"): Unit = {
     thetasMap.clear()
     cutoffMap.clear()
     for (labelType <- labelTypes) {
-
       val documents = reader.toBagOfWords(setName)
       val codes = Set[String](reader.codes.toList: _*).intersect(Codes.fromString(labelType))
       thetasMap(labelType) = Map() ++ codes.map((_, DenseVector.fill[Double](reader.outLength)(0.0))).toMap
+
       var learning_rate = 1.0
       var totalCodesAssigned = 0
+
+      /**
+      * Returns updated theta vector when considering a new document
+      *  @param theta : The existing theta value
+      *  @param code : The code of the theta value
+      *  @param doc : The new document input
+      *  @return : The new theta value
+      * */
       def update(theta: DenseVector[Double], code: String, doc: DataPoint): DenseVector[Double] = {
         val alpha = reader.getProbabilityOfCode(code)
         if (doc.y contains code) {
@@ -82,74 +86,76 @@ object LogisticRegression{
         }
       }
       cutoffMap(labelType) = cut.getCutoff()
-      logger.log(s"cutoff value : ${cutoffMap(labelType)}")
+      logger.log(s"optimal cutoff value : ${cutoffMap(labelType)}")
     }
   }
 
-  def validate(cutoff: Double = -1) : Double = {
-    var myCut = cutoff
+  /**
+    * Validates the trained model on the dataset specified. The dataset must have the real codes
+    * so that performance can be evaluated.
+    *
+    * @return : The F1-score obtained
+    */
+  def validate(setName : String) : Double = {
     var assignedCodes: Map[Int,Set[String]] = Map()
     var realCodes : Map[Int, Set[String]] = Map()
     //assign codes
     for (labelType <- labelTypes) {
-      if (myCut == -1){
-        myCut =cutoffMap(labelType)
-      }
-
-      for (validationDoc <- reader.toBagOfWords("validation")) {
+      for (validationDoc <- reader.toBagOfWords(setName)) {
         if (!assignedCodes.contains(validationDoc.itemId)) {
           assignedCodes(validationDoc.itemId) = Set()
-          //realCodes(validationDoc.itemId) = Set(validationDoc.y.toArray:_*)
-          realCodes(validationDoc.itemId) = Set(Codes.fromString("country").toArray:_*).intersect(validationDoc.y)
+          realCodes(validationDoc.itemId) = Set(Codes.fromString(labelType).toArray:_*).intersect(validationDoc.y)
         }
         assignedCodes(validationDoc.itemId) ++= //adds the codes
           (thetasMap(labelType).map { case (code, theta) => (logistic(theta.dot(validationDoc.x)), code)
-          }.filter(_._1 > myCut).map(_._2).toSet)
+          }.filter(_._1 > cutoffMap(labelType)).map(_._2).toSet)
       }
-
     }
-      var buf = scala.collection.mutable.ListBuffer.empty[Tuple2[Set[String], Set[String]]]
-      assignedCodes.foreach {
-        case (itemid, assigned) =>
-        buf += new Tuple2(assignedCodes(itemid) , realCodes(itemid))
-          println(s"${assignedCodes(itemid)}" + s"${realCodes(itemid)}")
-      }
 
-      logger.log(s"average codes assigned per doc in total: ${1.0 * assignedCodes.map(_._2.size).sum / assignedCodes.size}")
+    //compare predicted values with read values
+    var buf = scala.collection.mutable.ListBuffer.empty[Tuple2[Set[String], Set[String]]]
+    assignedCodes.foreach {
+      case (itemid, assigned) =>
+      buf += new Tuple2(assignedCodes(itemid) , realCodes(itemid))
+    }
+
+    logger.log(s"average codes assigned per doc in total: ${1.0 * assignedCodes.map(_._2.size).sum / assignedCodes.size}")
 
 
-      val validationPrecisionRecall = buf.map { case (actual, expected) =>
-        (actual.intersect(expected).size.toDouble / (actual.size + scala.Double.MinPositiveValue),
-          actual.intersect(expected).size.toDouble / (expected.size + scala.Double.MinPositiveValue))
-      }
-
-      logger.log("Computing score")
-      logger.log(s"average precision : ${validationPrecisionRecall.map(_._1).sum / 10000.0}")
-      logger.log(s"average recall   :  ${validationPrecisionRecall.map(_._2).sum / 10000.0}")
-      val validationF1 = validationPrecisionRecall
-        .map { case (precision, recall) => 2 * precision * recall / (precision + recall + scala.Double.MinPositiveValue)}
-      logger.log(s"score : ${validationF1.sum / 10000.0}")
+    logger.log("Computing score")
+    val validationPrecisionRecall = buf.map { case (actual, expected) =>
+      (actual.intersect(expected).size.toDouble / (actual.size + scala.Double.MinPositiveValue),
+        actual.intersect(expected).size.toDouble / (expected.size + scala.Double.MinPositiveValue))
+    }
+    val validationF1 = validationPrecisionRecall
+      .map { case (precision, recall) => 2 * precision * recall / (precision + recall + scala.Double.MinPositiveValue)}
+    logger.log(s"average precision : ${validationPrecisionRecall.map(_._1).sum / 10000.0}")
+    logger.log(s"average recall   :  ${validationPrecisionRecall.map(_._2).sum / 10000.0}")
+    logger.log(s"score : ${validationF1.sum / 10000.0}")
     return (validationF1.sum / 10000.0)
   }
 
-  def predict(cutoff:Double) : Unit = {
+  /**
+    * Fits the data to  the trained model. Creates a file with the predictions.
+    */
+  def predict(setName : String) : Unit = {
       var assignedCodes: Map[Int,Set[String]] = Map()
       //assign codes
       for (labelType <- labelTypes) {
-        for (testDoc <- reader.toBagOfWords("test")) {
+        for (testDoc <- reader.toBagOfWords(setName)) {
           if (!assignedCodes.contains(testDoc.itemId)) {
             assignedCodes(testDoc.itemId) = Set()
           }
           assignedCodes(testDoc.itemId) ++= //adds the codes
             (thetasMap(labelType).map { case (code, theta) => (logistic(theta.dot(testDoc.x)), code)
-            }.filter(_._1 > cutoff).map(_._2).toSet)
+            }.filter(_._1 > cutoffMap(labelType)).map(_._2).toSet)
         }
 
       }
 
       import java.io.PrintWriter
       import java.io.File
-      val pw = new PrintWriter(new File("countrycodes.txt"))
+      val pw = new PrintWriter(new File("prediction.txt"))
       assignedCodes.toSeq.sortBy(_._1).foreach{ case(id, codes) =>
         var line = s"$id "
         codes.foreach(x=> line = line.concat(x + " "))
@@ -157,5 +163,4 @@ object LogisticRegression{
       }
       pw.close()
     }
-
 }

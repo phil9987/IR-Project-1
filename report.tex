@@ -70,7 +70,23 @@ For each of the three different code-types a different threshold was evaluated. 
 While the word-code-probabilities for the topic-codes were calculated using the content of the reuters-articles we used only the article-titles to calculate the probabilities for the country-codes. 
 
 \section*{Logistic Regression}
-\lipsum[1-4] %replace with real text
+\subsection{Label Types}
+        We quickly saw that the problems of predicting the different label types were very different. For example there were usually more topic codes than  country codes per documnet. Furthermore, the industry codes were usually much harder to predict as they were structured in a hierarcal manner and there were more of them overall. Therefore we treated each label type independently, and applied variants of our general approach:
+            \subsubsection{ Topic codes}
+                This was the part where we had the least problems. the cutoffFinder lead to best results.  We reached a F1-score of around 0.35 on topic codes.
+
+            \subsubsection{ Country codes }
+                Here using the same approach as for topic codes worked fine, leading to a F1-score of around 0.20. However, we found out that using the document titles instead of the content lead to better results, since the name of the country of the interest was often present in the title. A second variation of the general approach we used was to manually determine the cutoff. The intuitive approach of targeting the same average of labels assigned (using the cutoffFinder) lead to some (especially longer) documents having a lot of country codes assigned, and some having none.
+                    Combining these two adjustements lead to a F1-score of around 44 for country codes.
+
+
+            \subsubsection{industry codes }
+            Predicting the industry codes with our current approach was very hard. There were many more industry codes than any other codes, and some of the industry codes were very rarely assigned.  Combined with the fact that our algorithm proceeded in an online manner, weighting some documents more than others, it was very hard to reach a F1-score higher than 0.10 (when focusing solely on industry codes). However, we observed that most of the time, there was no industry label to predict. Since predicting one when there was in fact none had a negative effect on the precision of our prediction, we chose the startegy to never predict any topic codes.
+
+            Combining the three differnet predictors into one, we got a F1-score of around 0.4
+
+    \subsection{Processing time and memory footprint}
+        Our alogrithm required approximately 1.9 GB of memory and took around 12 minutes to compute.
 
 \section*{SVM}
 The algorithm shown in the lecture is the well-known pegsasos algorithm\cite{shalev-shwartz_pegasos:_2011,shalev-shwartz_pegasos:_????}. For the implementation we train one SVM per category occuring in the training data in an all-vs-one approach.
