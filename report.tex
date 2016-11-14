@@ -128,11 +128,11 @@ Reducing the dictionary size helped to increase performance and slightly increas
 
 	\end{tabular}
 }
-\caption{Test Results for the SVM. All tests were done on a Machine with 32 GB ram and a high java heap size, thus java never deallocates memory. On another machine with less memory the memory consuption of the SVM code s only around 2 GB for most cases. The bold line shows what is used for submission and what is the current default.}
+\caption{Test Results for the SVM. All tests were done on a Machine with 32 GB ram and a high java heap size, thus java never deallocates memory. On another machine with less memory the memory consumption of the SVM code s only around 2 GB for most cases. The bold line shows what is used for submission and what is the current default.}
 \label{table:svmResults}
 \end{table}
 
-The SVM achieves very high prcesision, but poor recall indincating that it is too strict (not giving labels that should be there). Lowering the $\lambda$ parameter could solve this, but does not do so on in this case. This might indicate a non-linearly sperable set. This would suggest the usage of kernels. The results from \cite{joachims_text_1998} strongly suggest that polynomial or RBF kernel work well. However due to performance considerations we did not consider this in the first place and did not revisit it later due to time constraints.
+The SVM achieves very high precision, but poor recall indicating that it is too strict (not giving labels that should be there). Lowering the $\lambda$ parameter could solve this, but does not do so on in this case. This might indicate a non-linearly separable set. This would suggest the usage of kernels. The results from \cite{joachims_text_1998} strongly suggest that polynomial or RBF kernel work well. However due to performance considerations we did not consider this in the first place and did not revisit it later due to time constraints.
 
 \printbibliography
 
