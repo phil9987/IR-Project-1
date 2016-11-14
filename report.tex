@@ -9,10 +9,23 @@
 \usepackage{lipsum}
 
 \usepackage{todonotes}
-\usepackage{amsmath}
 
-\usepackage[backend=bibtex]{biblatex}
+\usepackage{amsmath}
+\usepackage{multirow}
+
+\usepackage[backend=biber]{biblatex}
 \addbibresource{papers.bib}
+
+
+\DeclareSourcemap{
+  \maps[datatype=bibtex]{
+    \map[overwrite=true]{
+      \step[fieldset=urldate, null]
+      \step[fieldset=url, null]
+      \step[fieldset=note, null]
+    }
+  }
+}
 
 % setup info
 \title{IR Project 1: Report}
@@ -34,7 +47,6 @@
 	\item readme file
 	\item package code and results
 	\item finish report
-	\item clean up bibtex notes
 \end{itemize}
 
  
@@ -53,7 +65,7 @@ We also tied to access the data in a random order. Our assumption was that some 
 However, the random ofer had only neglicbale effects on the performance of the algorithms. As the order is irrelevant for the Naive Bayes approach, this has no impact on it.
 
 \section*{Naive Bayes}
-We used the formulas for Naive Bayes as shown in the lecture. For each code we calculated the probability $P(word | code)$ for every word in the reduced dictionary.
+We used the formulas for Naive Bayes as shown in the lecture. For each code we calculated the probability $P(word | code)$ for every word in the reduced dictionary.
 For each of the three different code-types a different threshold was evaluated. The advantage of this approach is the independence of the code-types and therefore the possibility of a country-code to be predicted altough the probability for this code given a document is much lower than for all the topic-codes. Because the industry-codes are very hard to predict the optimal threshold for these codes turned out to be zero, meaning we do never predict an industry code.
 While the word-code-probabilities for the topic-codes were calculated using the content of the reuters-articles we used only the article-titles to calculate the probabilities for the country-codes. 
 
@@ -62,12 +74,39 @@ While the word-code-probabilities for the topic-codes were calculated using the 
 
 \section*{SVM}
 The algorithm shown in the lecture is the well-known pegsasos algorithm\cite{shalev-shwartz_pegasos:_2011,shalev-shwartz_pegasos:_????}. For the implementation we train one SVM per category occuring in the training data in an all-vs-one approach.
-Data was preproccessed as introduced before with the use of homogeneous coordinates (bias term) and without. The listed papers suggest, not using a bias with the normal formulation of the pegasos algorith or to adjust it if doing so, as it undermines the convergences guarantee. However we see a slight increase in performance if using homogenous coordinates and the SVM formulation form the lecture.
-The results from \cite{joachims_text_1998} strongly suggest to use a polynomial or RBF kernel, but \todo{RBF on title}.
+Table~\ref{table:svmResults} shows the results of various approaches.
+Data was preproccessed as introduced before with the use of homogeneous coordinates (bias term) and without. The listed papers suggest, not using a bias with the normal formulation of the pegasos algorith or to adjust it if doing so, as it undermines the convergences guarantee. As the bias them is just a very small change (second decimal place) and was thus omitted. For the parameter $\lambda$ the optimal choice seems to be around $10^{-4} - 10^{5}$. Seems consistent when changing other parameter of the algorithm. Thus further tests were only run with those lambdas.
 
+Reducing the dictionary size helped to incrase performance and slightliy increase the score. So the final version (bold) uses only tokenes extracted from titles, but all of them.
 
-The SVM achieves very high prcesision, but poor recall indincating that it is too strict (not giving labels that should be there). Lowering the $\lambda$ parameter could solve this. If this still does not solve it, it might indicate a non-linearly sperable set. This would suggest the usage of kernels.
+\begin{table}[h]
+\centering
+\resizebox{\textwidth}{!}{
+	\begin{tabular}{|l|l|l|l|l|r|r|r|r|r|}
+	\hline
+	$\lambda$ & \texttt{minOccurrence} & \texttt{maxOccurrenceRate} & Dictionary,Weights & Resulting \# Words & Run Time & Memory Consumption & Avg. Precission & Avg. Recall & Avg. F1-Score\\
+	\hline
+	1 & 1 & 0.2 & tokens, count-weights & TODO & 123 min & 8 GB & 0.295 & 0.053 & 0.08\\ \hline
+	1 & 3 & 0.2 & tokens, count-weights & 39249 & 28 min & 3.4 GB & 0.30 & 0.053 & 0.09\\ \hline
+	0.1 & 3 & 0.2 & tokens, count-weights & 39249 & 28 min & 3.7 GB & 0.30 & 0.053 & 0.09\\ \hline
+	0.01 & 3 & 0.2 & tokens, count-weights & 39249 & 19 min & 3.4 GB & 0.55 & 0.11 & 0.19\\ \hline
+	0.001 & 3 & 0.2 & tokens, count-weights & 39249 & 15 min & 3.5 GB & 0.88 & 0.19 & 0.31\\ \hline
+	0.0001 & 3 & 0.2 & tokens, count-weights & 39249 & 14 min & 3.4 GB & 0.92 & 0.20 & 0.33\\ \hline
+	0.00001 & 3 & 0.2 & tokens, count-weights & 39249 & 14 min & 3.4GB & 0.92 & 0.20 & 0.33\\ \hline
+	0.0001 & 10 & 0.2 & tokens, count-weights & TODO & 7 min & 3 GB & 0.92 & 0.20 & 0.33\\ \hline
+	0.0001 & 20 & 0.2 & tokens, count-weights & TODO & 5 min & TODO & 0.92 & 0.20 & 0.33\\ \hline
+	0.0001 & 20 & 1 & tokens, count-weights & TODO & 5 min & 3.1 GB & 0.92 & 0.20 & 0.33\\ \hline
+	0.0001 & 0 & 1 & titles, count-weights & 22871 & 8 min & 3.1 GB & 0.93 & 0.21 & 0.34\\ \hline
+	\textbf{0.0001} & \textbf{0} & \textbf{1} & \textbf{titles, boolean weights} & \textbf{22871} & \textbf{8 min} & \textbf{3.1 GB} & \textbf{0.94} & \textbf{0.21} & \textbf{0.34}\\ \hline
+	0.0001 & 0 & 1 & titles, tf-idf weights & 22871 & 8 min & 3.1 GB & 0.90 & 0.20 & 0.32\\ \hline
 
+	\end{tabular}
+}
+\caption{Test Results for the SVM. All tests were done on a Machine with 32 GB ram and a high java heap size, thus java never deallocates memory. On another machine with less memory the memory consuption of the SVM code s only around 2 GB for most cases. The bold line shows what is used for submission and what is the current default.}
+\label{table:svmResults}
+\end{table}
+
+The SVM achieves very high prcesision, but poor recall indincating that it is too strict (not giving labels that should be there). Lowering the $\lambda$ parameter could solve this, but does not do so on in this case. This might indicate a non-linearly sperable set. This would suggest the usage of kernels. The results from \cite{joachims_text_1998} strongly suggest that polynomial or RBF kernel work well. However due to performance considerations we did not consider this in the first place and did not revisit it later due to time constraints.
 
 \printbibliography
 
