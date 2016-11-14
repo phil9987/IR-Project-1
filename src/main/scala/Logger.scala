@@ -42,11 +42,11 @@ class Logger(name: String) {
 
   /**
     * Similar to log(text).
-    * Logs the text only ever logEveryN occurences to reduce output in busy functions.
+    * Logs the text only ever logEveryN occurrences to reduce output in busy functions.
     * An internal counter is defined and associated with logPointName.
     * @param text Text to be logged.
     * @param logPointName Name of the logPoint.
-    * @param logEveryN Log will be printed every N occurences.
+    * @param logEveryN Log will be printed every N occurrences.
     */
   def log(text: String, logPointName: String, logEveryN: Int): Unit =
   {

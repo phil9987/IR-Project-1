@@ -22,7 +22,6 @@ object Main{
       svm.train()
       svm.validate()
       svm.predict("ir-2016-1-project-7-svm.txt")
-      //TODO: ask for input path/let prgram use any input path
     }
   }
 }
