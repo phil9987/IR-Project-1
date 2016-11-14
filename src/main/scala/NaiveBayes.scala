@@ -18,8 +18,8 @@ import scala.annotation.tailrec
   */
 object NaiveBayes{
 
-  var topicThreshold:Double = -7.1
-  var countryThreshold:Double = -7.4
+  var topicThreshold:Double = -10.2
+  var countryThreshold:Double = -9.4
   //var industryThreshold:Double = -10.3
   var industryThreshold:Double = 0
   val logger = new Logger("NaiveBayes")
@@ -104,8 +104,6 @@ object NaiveBayes{
     */
   def validate(): Unit ={
     logger.log("Running trained model on validation data...")
-    for(k<- 1 until 11 by 1) {
-      topicThreshold = -9.5 -(0.1*k)
       val validationResult = getValidationResult()
       //compute precision, recall, f1 and averaged f1
       logger.log("Computing scores")
@@ -115,7 +113,7 @@ object NaiveBayes{
       }
       val validationF1 = validationPrecisionRecall
         .map { case (precision, recall) => 2 * precision * recall / (precision + recall + scala.Double.MinPositiveValue) }
-      logger.log(s"Threshold = $topicThreshold F1-Average= ${validationF1.sum / validationF1.length}")
+      logger.log(s"Topic-Threshold = $topicThreshold, Country-Threshold = $countryThreshold, industryThreshold = 0.0, F1-Average= ${validationF1.sum / validationF1.length}")
     }
   }
 
@@ -185,7 +183,9 @@ object NaiveBayes{
   def main(args: Array[String]): Unit = {
     //train()
     //saveDocumentCategoryProbabilitiesToFile("./src/main/resources/data/model/bayesPar_3_0.2_topicCodes_stemmed.csv")
-    loadDocumentCategoryProbabilitiesFromFile("./src/main/resources/data/model/bayesPar_3_0.2_topicCodes_stemmed.csv")
+    //loadDocumentCategoryProbabilitiesFromFile("./src/main/resources/data/model/bayesPar_3_0.2_topicCodes_stemmed.csv")
+    loadDocumentCategoryProbabilitiesFromFile("./src/main/resources/data/model/bayesPar_20_1.0_countryCodes_TitleReader.csv")
+
     validate()
     //predict()
 

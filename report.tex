@@ -10,6 +10,7 @@
 
 \usepackage{todonotes}
 \usepackage{amsmath}
+\usepackage{graphics}
 
 \usepackage[backend=bibtex]{biblatex}
 \addbibresource{papers.bib}
@@ -53,9 +54,15 @@ We also tied to access the data in a random order. Our assumption was that some 
 However, the random ofer had only neglicbale effects on the performance of the algorithms. As the order is irrelevant for the Naive Bayes approach, this has no impact on it.
 
 \section*{Naive Bayes}
-We used the formulas for Naive Bayes as shown in the lecture. For each code we calculated the probability $P(word | code)$ for every word in the reduced dictionary.
-For each of the three different code-types a different threshold was evaluated. The advantage of this approach is the independence of the code-types and therefore the possibility of a country-code to be predicted altough the probability for this code given a document is much lower than for all the topic-codes. Because the industry-codes are very hard to predict the optimal threshold for these codes turned out to be zero, meaning we do never predict an industry code.
-While the word-code-probabilities for the topic-codes were calculated using the content of the reuters-articles we used only the article-titles to calculate the probabilities for the country-codes. 
+We used the formulas for Naive Bayes as shown in the lecture. For each code we calculated the probability $P(word | code)$ for every word in the reduced dictionary.
+For each of the three different code-types a different threshold was evaluated. The advantage of this approach is the independence of the code-types and therefore the possibility of a country-code to be predicted although the probability for this code given a document is much lower than for all the topic-codes. The performance in form of F1-scores is plotted for both country- and topic-codes in figure \ref{fig_bayesThreshold}. Because the industry-codes are very hard to predict the optimal threshold for these codes turned out to be zero, meaning we do never predict an industry code.
+While the word-code-probabilities for the topic-codes were calculated using the content of the Reuters-articles we used only the article-titles to calculate the probabilities for the country-codes. 
+\begin{figure}[h!]
+    \centering
+    \includegraphics[scale=0.6]{graphics/BayesF1ScoreTopicCountry.pdf}
+    \caption{This figure shows the average F1-Score of topic- and country-codes using different thresholds for the normalized log-probability.}
+    \label{fig_bayesThreshold}
+\end{figure}
 
 \section*{Logistic Regression}
 \lipsum[1-4] %replace with real text
