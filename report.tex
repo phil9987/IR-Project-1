@@ -47,13 +47,15 @@ In our team one person each focues on one classifier. While we shared insights, 
 \section*{Data transformation and pruning}
 A big part of our implementation was data preprocessing. We read the tokens from the documents (with tinyIR), remove tokens not consiting of letters, stem the word and remove stopwords. \cite{joachims_text_1998,ozgur_text_2005} both list this as the standard approach to preprocessing in document classifcation. From the resulting corpus of documents we remove those that occur less then \texttt{minOccurrence} and those that are found in more than $\text{\texttt{maxOccurrenceRate}} \cdot \text{\texttt{nrDocuments}}$, where $\text{\texttt{maxOccurrenceRate}} \in (0, 1]$.
 The resulting dictionary of words is uses to rerpresent each document as a bag-of-words vector. For the weights within the vector we use boolean weights (1 if the word occurs in the document, else 0), tf-idf weights (insprired by \cite{ozgur_text_2005}) and the count of word.  \todo{specify weighting method here} has generally yielded the best result.
-We also discovered, that words extracted from the title of the document contain a high amount of information and lend themselves especially to predicting country codes. The words from the headers were processed like the words from the content.
+We also discovered, that words extracted from the title of the document contain a high amount of information and lend themselves especially to predicting country codes. The words from the titles were processed like the words from the content.
 
 We also tied to access the data in a random order. Our assumption was that some classes might only show up at the end of the stream of documents and thus, might only be encountert with a very low learning rate (in Logistic Rergession and SVM).
 However, the random ofer had only neglicbale effects on the performance of the algorithms. As the order is irrelevant for the Naive Bayes approach, this has no impact on it.
 
 \section*{Naive Bayes}
-\lipsum[1-4] %replace with real text
+We used the formulas for Naive Bayes as shown in the lecture. For each code we calculated the probability $P(word | code)$ for every word in the reduced dictionary.
+For each of the three different code-types a different threshold was evaluated. The advantage of this approach is the independence of the code-types and therefore the possibility of a country-code to be predicted altough the probability for this code given a document is much lower than for all the topic-codes. Because the industry-codes are very hard to predict the optimal threshold for these codes turned out to be zero, meaning we do never predict an industry code.
+While the word-code-probabilities for the topic-codes were calculated using the content of the reuters-articles we used only the article-titles to calculate the probabilities for the country-codes. 
 
 \section*{Logistic Regression}
 \lipsum[1-4] %replace with real text

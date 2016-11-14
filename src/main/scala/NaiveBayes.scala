@@ -18,19 +18,19 @@ import scala.annotation.tailrec
   */
 object NaiveBayes{
 
-  val topicThreshold:Double = -10.7
-  val countryThreshold:Double = -10.7
-  val industryThreshold:Double = -10.7
+  var topicThreshold:Double = -7.1
+  var countryThreshold:Double = -7.4
+  //var industryThreshold:Double = -10.3
+  var industryThreshold:Double = 0
   val logger = new Logger("NaiveBayes")
   var documentCategoryProbabilities = scala.collection.mutable.HashMap.empty[String,DenseVector[Double]].par
-  //val reader = new Reader(10, 0.8, false) //create reader with no bias
-  val reader = new TfIDfReader(2000, false)
-  //val reader = new PerClassTfIdfReader(50,false)
-  reader.pruneRareCodes(10)
+  //val reader = new TitleReader(20,1,false)
+  val reader = new Reader(3, 0.2, false) //create reader with no bias
+  //val titleReader = new TitleReader(20,1,false)
+  //reader.pruneRareCodes(10)
   val topicCodes = Set[String](reader.codes.toList: _*).intersect(Codes.fromString("topic"))
   val industryCodes = Set[String](reader.codes.toList: _*).intersect(Codes.fromString("industry"))
   val countryCodes = Set[String](reader.codes.toList: _*).intersect(Codes.fromString("country"))
-
 
   /**
     *
@@ -93,25 +93,30 @@ object NaiveBayes{
       (documentCategoryProbabilities.map { case (code, wordCategoryProbabilities) =>
         (log(reader.getProbabilityOfCode(code)) + dp.x.dot(wordCategoryProbabilities) / sum(dp.x), code)}
         .toList.sortBy(_._1)
-        .filter{ case (score, code) =>
-                (score > topicThreshold && (topicCodes contains code))}
-        .map(_._2)
-        .toSet, dp.y.intersect(topicCodes))).toList
+          .filter{ case (score,code)=>
+            (score > topicThreshold && (topicCodes contains code)) || (score > industryThreshold && (industryCodes contains code)) || (score > countryThreshold && (countryCodes contains code))
+          }
+        .map(_._2).toSet, dp.y.intersect(topicCodes))).toList
   }
 
+  /**
+    *
+    */
   def validate(): Unit ={
     logger.log("Running trained model on validation data...")
-    val validationResult = getValidationResult()
-
-    //compute precision, recall, f1 and averaged f1
-    logger.log("Computing scores")
-    val validationPrecisionRecall = validationResult.map { case (actual, expected) =>
-      (actual.intersect(expected).size.toDouble / (actual.size + scala.Double.MinPositiveValue),
-        actual.intersect(expected).size.toDouble / (expected.size + scala.Double.MinPositiveValue))
+    for(k<- 1 until 11 by 1) {
+      topicThreshold = -9.5 -(0.1*k)
+      val validationResult = getValidationResult()
+      //compute precision, recall, f1 and averaged f1
+      logger.log("Computing scores")
+      val validationPrecisionRecall = validationResult.map { case (actual, expected) =>
+        (actual.intersect(expected).size.toDouble / (actual.size + scala.Double.MinPositiveValue),
+          actual.intersect(expected).size.toDouble / (expected.size + scala.Double.MinPositiveValue))
+      }
+      val validationF1 = validationPrecisionRecall
+        .map { case (precision, recall) => 2 * precision * recall / (precision + recall + scala.Double.MinPositiveValue) }
+      logger.log(s"Threshold = $topicThreshold F1-Average= ${validationF1.sum / validationF1.length}")
     }
-    val validationF1 = validationPrecisionRecall
-      .map { case (precision, recall) => 2 * precision * recall / (precision + recall + scala.Double.MinPositiveValue) }
-    logger.log(" F1-Average=" + validationF1.sum / validationF1.length)
   }
 
   /**
@@ -131,7 +136,6 @@ object NaiveBayes{
     val out = new PrintWriter(new File("./src/main/resources/data/ir-project-2016-1-7-nb.txt"))
     testResult.map { case (docId, predictedCodes) => predictedCodes.toArray.mkString(docId + " ", " ", "\n") }.seq.foreach(out.write(_))
     out.close
-
   }
 
   /**
@@ -140,7 +144,10 @@ object NaiveBayes{
   def train(): Unit ={
     logger.log("Training Model...")
     //val codes = Set[String](reader.codes.toList: _*)
-    val codes = Set[String]("GPOL, GPRO, GREL, GSCI, GSPO, GTOUR, GVIO, GVOTE, GWEA, GWELF, M11, M12, M13")
+    //val codes = debugCodes
+    //val codes = Set[String](reader.codes.toList: _*).intersect(countryCodes)
+    var codes = Set[String](reader.codes.toList: _*).intersect(topicCodes)
+
     logger.log(s"${codes.size} codes will be trained...")
     codes.foreach(code => documentCategoryProbabilities += code -> DenseVector.ones[Double](reader.reducedDictionarySize))
     var codesDone = Set[String]()
@@ -153,6 +160,22 @@ object NaiveBayes{
         bowStream = reader.toBagOfWords("train"),
         vocabSize = reader.reducedDictionarySize)
     }
+
+    /*// train countryCodes with TitleReader...
+    codes = Set[String](titleReader.codes.toList: _*).intersect(countryCodes)
+    logger.log(s"${codes.size} codes will be trained...")
+    codes.foreach(code => documentCategoryProbabilities += code -> DenseVector.ones[Double](reader.reducedDictionarySize))
+    codesDone = Set[String]()
+    documentCategoryProbabilities = documentCategoryProbabilities.map { case (code, wordCategoryProbabilities) =>
+      logger.log(codesDone.size + " codes passed", "trainI", 5)
+      codesDone += code
+      code -> calculateWordCategoryProbabilities(wordCounts = wordCategoryProbabilities,
+        alpha = 1.0,
+        code = code,
+        bowStream = titleReader.toBagOfWords("train"),
+        vocabSize = titleReader.reducedDictionarySize)
+    }*/
+
   }
 
   /**
@@ -161,11 +184,10 @@ object NaiveBayes{
     */
   def main(args: Array[String]): Unit = {
     //train()
-    //saveDocumentCategoryProbabilitiesToFile("./src/main/resources/data/model/bayesPar_2000tfidf_complete.csv")
-    loadDocumentCategoryProbabilitiesFromFile("./src/main/resources/data/model/bayesPar_2000tfidf_complete.csv")
-    // || (score > industryThreshold && (industryCodes contains code)) || (score > countryThreshold && (countryCodes contains code))
+    //saveDocumentCategoryProbabilitiesToFile("./src/main/resources/data/model/bayesPar_3_0.2_topicCodes_stemmed.csv")
+    loadDocumentCategoryProbabilitiesFromFile("./src/main/resources/data/model/bayesPar_3_0.2_topicCodes_stemmed.csv")
     validate()
-    predict()
+    //predict()
 
   }
 }
