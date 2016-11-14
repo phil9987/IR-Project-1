@@ -20,7 +20,7 @@ object Main{
       val svm = new SVM(0.1)
       svm.train()
       svm.validate()
-      svm.predict()
+//      svm.predict()
       //TODO: ask for input path/let prgram use any input path
     }
   }
