@@ -130,7 +130,6 @@ abstract class BaseReader()
     */
   def toBagOfWords(input: Stream[XMLDocument]): Stream[DataPoint] =
   {
-    logger.log("toBagOfWords")
     List[DataPoint]().toStream
   }
 
