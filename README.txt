@@ -1,6 +1,6 @@
 The programm assumes that the codes are stored in src/main/resources
 
-src/main
+src/main/
 ├── java
 ├── resources
 │   ├── codes
