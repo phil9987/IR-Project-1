@@ -72,6 +72,9 @@ While the word-code-probabilities for the topic-codes were calculated using the 
 
 The training of the model needs constantly 1.3GB of RAM. The training of the topic-codes took around 160 minutes in total to train the topic-codes (80 minutes) and the country-codes (80 minutes). The training was done on a laptop with an intel i7 (2.9GHz) with 8GB of RAM.
 
+For the topic-codes the optimal threshold for the log-probabilities has been evaluated on the full training data to be $-10.2$ and for the country-codes $-9.4$. With these thresholds and the above mentioned approach of only considering article titles for training of country-codes and only considering content for training topic-codes we achieved an F1-Average score of 0.424 on the validation set.
+
+
 \begin{figure}[h!]
     \centering
     \includegraphics[scale=0.6]{graphics/BayesF1ScoreTopicCountry.pdf}
