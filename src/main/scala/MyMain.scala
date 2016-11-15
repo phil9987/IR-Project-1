@@ -3,7 +3,7 @@ import ch.ethz.dal.tinyir.processing._
 
 object Main{
   val logger = new Logger("Main")
-  def main(args : Array[String]): Unit ={
+  def consoleMain(args : Array[String]): Unit ={
     //TODO create menu
     logger.log("starting up, got args: " + args.mkString("[", ", ", "]"))
     if (args(0) == "bayes"){

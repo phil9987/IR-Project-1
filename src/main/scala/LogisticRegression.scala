@@ -87,7 +87,7 @@ object LogisticRegression{
     *
     * @return : The F1-score obtained
     */
-  def validate(setName : String) : Double = {
+  def validate(setName : String = "validation") : Double = {
     var assignedCodes: Map[Int,Set[String]] = Map()
     var realCodes : Map[Int, Set[String]] = Map()
     //assign codes
@@ -129,7 +129,7 @@ object LogisticRegression{
   /**
     * Fits the data to  the trained model. Creates a file with the predictions.
     */
-  def predict(setName : String) : Unit = {
+  def predict(setName : String = "test") : Unit = {
       var assignedCodes: Map[Int,Set[String]] = Map()
       //assign codes
       for (labelType <- labelTypes) {
@@ -154,4 +154,10 @@ object LogisticRegression{
       }
       pw.close()
     }
+
+  def main(args : Array[String]) : Unit = {
+    train()
+    validate()
+    predict()
+  }
 }
