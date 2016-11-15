@@ -2,14 +2,13 @@
 % setup page
 \usepackage[utf8]{inputenc}
 \usepackage{fancyhdr}
-\usepackage[a4paper, top=2.5cm, left=2cm, right=2cm, bottom=2cm]{geometry}
+\usepackage[a4paper, top=2.2cm, left=1.5cm, right=1.5cm, bottom=1.75cm]{geometry}
 \usepackage{titling}
-
-% for random text
-\usepackage{lipsum}
 
 \usepackage{todonotes}
 \usepackage{amsmath}
+\usepackage{graphicx,wrapfig}
+\usepackage[font=small,labelfont=bf]{caption}
 
 \usepackage[backend=biber]{biblatex}
 \addbibresource{papers.bib}
@@ -33,6 +32,7 @@ For the implementations of the naive Bayes, logistic regression and SVM we staye
 
 In our team one person each focused on one classifier. While we shared insights and the code that we use for the reader, this might account for inconsistencies in the code and different tone in the chapters of this report.
 
+\vspace{-2mm}
 \section*{Data transformation and pruning}
 A big part of our implementation was data preprocessing. We read the tokens from the documents (with the tinyIR library), removed tokens not consisting of letters, stemmed the word and removed stopwords. \cite{joachims_text_1998,ozgur_text_2005} both list this as the standard approach to pre-processing in document classification. From the resulting corpus of documents we remove those that occured in less then \texttt{minOccurrence} and those that are found in more than $\text{\texttt{maxOccurrenceRate}} \cdot \text{\texttt{nrDocuments}}$, where $\text{\texttt{maxOccurrenceRate}} \in (0, 1]$.
 The resulting dictionary of words is used to represent each document as a bag-of-words vector. For the weights within the vector we used boolean weights (1 if the word occurs in the document, else 0), tf-idf weights (inspired by \cite{ozgur_text_2005}) and the word frequency. The latter generally lead to the best results.
@@ -42,7 +42,16 @@ Because the initial documents have more influence in online algorithms such as o
 
 Predicting the industry codes turned out to be very difficult : There were more possible industry codes, and some of them were very rarely assigned.  In addition, we observed that around half of the documents did not have any industry code assigned. For Logistic Regression and Naive Bayes, we therefore chose to never assign any industry code. This lead to better results as the precision remained unaffected.
 
+\vspace{-2mm}
 \section*{Naive Bayes}
+
+\begin{wrapfigure}{r}{6cm}
+    \centering
+    \includegraphics[width=6cm]{graphics/BayesF1ScoreTopicCountry.pdf}
+    \caption{This figure shows the average F1-Score of topic- and country-codes using different thresholds for the normalized log-probability.}
+    \label{fig_bayesThreshold}
+\end{wrapfigure}
+
 We used the formulas for Naive Bayes as shown in the lecture. For each code we calculated the probability $P(word | code)$ for every word in the reduced dictionary. We were then faced with the problem of finding cutoff values for probabilities that determine whether a code is assigned to a document or not.
 
 For each of the three different code-types different cutoffs were evaluated. The advantage of this approach is the independence of the code-types and therefore the possibility of a country-code to be predicted although the probability for this code given a document is much lower than for all the topic-codes. The performance in form of F1-scores is plotted for both country- and topic-codes in figure \ref{fig_bayesThreshold}. As mentioned, no industry codes were predicted, and the document title was used instead of the document content to calculate probabilities for the country codes.
@@ -52,14 +61,7 @@ For the topic-codes the optimal threshold for the log-probabilities has been eva
 The training of the model needs constantly 1.3GB of RAM. The training of the topic-codes took around 160 minutes in total to train the topic-codes (80 minutes) and the country-codes (80 minutes). This was done on a laptop with an intel i7 (2.9GHz) with 8GB of RAM.
 
 
-
-\begin{figure}[h!]
-    \centering
-    \includegraphics[scale=0.6]{graphics/BayesF1ScoreTopicCountry.pdf}
-    \caption{This figure shows the average F1-Score of topic- and country-codes using different thresholds for the normalized log-probability.}
-    \label{fig_bayesThreshold}
-\end{figure}
-
+\vspace{-2mm}
 \section*{Logistic Regression}
     Logistic regression was done as an online-algorithm with one-vs-all classifiers for each code. After pre-processing and pruning the data as described above, we had to select the \texttt{minOcccurence} and \texttt{maxOccurence} rate. We tried different values but saw that using \texttt{minOccurrence} = 20 and \texttt{maxOccurenceRate} = 1 lead to the best results.
     As in naive bayes, the three code types were treated independently :
@@ -73,6 +75,7 @@ The training of the model needs constantly 1.3GB of RAM. The training of the top
 
     Our algorithm required approximately 1.9 GB of memory and took around 12 minutes to compute an intel i7 laptop (2.9GHz) with 8GB of RAM.
 
+\vspace{-2mm}
 \section*{SVM}
 The algorithm shown in the lecture is the well-known pegsasos algorithm\cite{shalev-shwartz_pegasos:_2011,shalev-shwartz_pegasos:_????}. For the implementation we trained one SVM per category occurring in the training data in an all-vs-one approach.
 Table~\ref{table:svmResults} shows the results of various approaches.
@@ -109,10 +112,9 @@ Using the absolute count as weights of the bag-of-words vectors was equivalent t
 \label{table:svmResults}
 \end{table}
 
-The SVM achieves very high precession, but poor recall indicating that it is too strict (not giving labels that should be there). Lowering the $\lambda$ parameter could solve this, but does not do so on in this case. This might indicate a non-linearly separable set. This would suggest the usage of kernels. The results from \cite{joachims_text_1998} strongly suggest that polynomial or RBF kernels work well. However due to performance issues and time constraints we did not consider this.
+The SVM achieves very high precession, but poor recall indicating that it is too strict (not giving labels that should be there). Lowering the $\lambda$ parameter could solve this, but does not do so on in this case. This might indicate a non-linearly separable set. This would suggest the usage of kernels. The results from \cite{joachims_text_1998} strongly suggest that polynomial or RBF kernels work well. However due to performance issues and time constraints we did not consider this. As the precision was very high, we did not exclude industry codes from our prediction. The hope was to balance out precision and recall, which would lead to overall better F1-scores.
 
-As the precision was very high, we did not exclude industry codes from our prediction. The hope was to balance out precision and recall, which would lead to overall better F1-scores.
-
-\printbibliography
+\vspace{-2mm}
+\tiny{\printbibliography}
 
 \end{document}
