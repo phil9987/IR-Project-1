@@ -206,9 +206,9 @@ class NaiveBayes(topicThreshold: Double, countryThreshold:Double){
 object NaiveBayes {
   def main(args: Array[String]): Unit = {
     val nb = new NaiveBayes(-10.2, -9.4)
-    //nb.train()
-    //nb.saveDocumentCategoryProbabilitiesToFile("NBCompleteModel")
-    nb.loadDocumentCategoryProbabilitiesFromFile("./scr/main/resources/data/model/bayesPar_TopicCountryCombinedSubmission.csv")
+    nb.train()
+    nb.saveDocumentCategoryProbabilitiesToFile("NBCompleteModel")
+    //nb.loadDocumentCategoryProbabilitiesFromFile("./src/main/resources/data/model/bayesPar_TopicCountryCombinedSubmission.csv")
     nb.validate()
     nb.predict("ir-2016-1-project-7-nb.txt")
   }
