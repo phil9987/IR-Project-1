@@ -31,26 +31,27 @@
 \section*{Introduction}
 For the implementations of the naive Bayes, logistic regression and SVM we stayed close to the code shown in the lecture. Thus the implementations of the algorithms were straightforward while optimization and data pre-processing were challenging. Most of our effort went into the data pruning.
 
-In our team one person each focused on one classifier. While we shared insights, and the code that we use for the reader, this might account for inconsistencies in the code and different tone in the chapters of this report.
-
+In our team one person each focused on one classifier. While we shared insights and the code that we use for the reader, this might account for inconsistencies in the code and different tone in the chapters of this report.
 
 \section*{Data transformation and pruning}
-A big part of our implementation was data preprocessing. We read the tokens from the documents (with the tinyIR library), removed tokens not consisting of letters, stem the word and removed stopwords. \cite{joachims_text_1998,ozgur_text_2005} both list this as the standard approach to pre-processing in document classification. From the resulting corpus of documents we remove those that occur in less then \texttt{minOccurrence} and those that are found in more than $\text{\texttt{maxOccurrenceRate}} \cdot \text{\texttt{nrDocuments}}$, where $\text{\texttt{maxOccurrenceRate}} \in (0, 1]$.
-The resulting dictionary of words is used to represent each document as a bag-of-words vector. For the weights within the vector we used boolean weights (1 if the word occurs in the document, else 0), tf-idf weights (inspired by \cite{ozgur_text_2005}) and the count of word. The latter generally lead to the best results.
+A big part of our implementation was data preprocessing. We read the tokens from the documents (with the tinyIR library), removed tokens not consisting of letters, stemmed the word and removed stopwords. \cite{joachims_text_1998,ozgur_text_2005} both list this as the standard approach to pre-processing in document classification. From the resulting corpus of documents we remove those that occured in less then \texttt{minOccurrence} and those that are found in more than $\text{\texttt{maxOccurrenceRate}} \cdot \text{\texttt{nrDocuments}}$, where $\text{\texttt{maxOccurrenceRate}} \in (0, 1]$.
+The resulting dictionary of words is used to represent each document as a bag-of-words vector. For the weights within the vector we used boolean weights (1 if the word occurs in the document, else 0), tf-idf weights (inspired by \cite{ozgur_text_2005}) and the word frequency. The latter generally lead to the best results.
 We also discovered  that words extracted from the title of the document contain a high amount of information and lend themselves especially to predicting country codes. The words from the titles were processed like the words from the content.
 
 Because the initial documents have more influence in online algorithms such as our SVM and Logistic Regression, we tried accessing the documents of the training set in random order. The hope was to spread the influence of documents more evenly across the corpus. However this did not lead to significant improvements.
 
-Predicting the industry codes turned out to be very difficult, especially for Naive Bayes and Logistic Regression. There were more possible industry codes, and some of them were very rarely assigned.  In addition, we observed that around half of the documents did not have any industry code assigned. For Logistic Regression and Naive Bayes, we therefore chose to never assign any industry code. This lead to better results as the precision remained unaffected.
+Predicting the industry codes turned out to be very difficult : There were more possible industry codes, and some of them were very rarely assigned.  In addition, we observed that around half of the documents did not have any industry code assigned. For Logistic Regression and Naive Bayes, we therefore chose to never assign any industry code. This lead to better results as the precision remained unaffected.
 
 \section*{Naive Bayes}
 We used the formulas for Naive Bayes as shown in the lecture. For each code we calculated the probability $P(word | code)$ for every word in the reduced dictionary. We were then faced with the problem of finding cutoff values for probabilities that determine whether a code is assigned to a document or not.
 
-For each of the three different code-types different cutoff was evaluated. The advantage of this approach is the independence of the code-types and therefore the possibility of a country-code to be predicted although the probability for this code given a document is much lower than for all the topic-codes. The performance in form of F1-scores is plotted for both country- and topic-codes in figure \ref{fig_bayesThreshold}. As mentioned, no industry codes were predicted, and the document title was used instead of the document content to calculate probabilities for the country codes.
+For each of the three different code-types different cutoffs were evaluated. The advantage of this approach is the independence of the code-types and therefore the possibility of a country-code to be predicted although the probability for this code given a document is much lower than for all the topic-codes. The performance in form of F1-scores is plotted for both country- and topic-codes in figure \ref{fig_bayesThreshold}. As mentioned, no industry codes were predicted, and the document title was used instead of the document content to calculate probabilities for the country codes.
+
+For the topic-codes the optimal threshold for the log-probabilities has been evaluated on the full training data to be $-10.2$ and for the country-codes $-9.4$. With these thresholds and the above mentioned approach of only considering article titles for training of country-codes and only considering content for training topic-codes we achieved an F1-Average score of $0.424$ on the validation set.
 
 The training of the model needs constantly 1.3GB of RAM. The training of the topic-codes took around 160 minutes in total to train the topic-codes (80 minutes) and the country-codes (80 minutes). This was done on a laptop with an intel i7 (2.9GHz) with 8GB of RAM.
 
-For the topic-codes the optimal threshold for the log-probabilities has been evaluated on the full training data to be $-10.2$ and for the country-codes $-9.4$. With these thresholds and the above mentioned approach of only considering article titles for training of country-codes and only considering content for training topic-codes we achieved an F1-Average score of $0.424$ on the validation set.
+
 
 \begin{figure}[h!]
     \centering

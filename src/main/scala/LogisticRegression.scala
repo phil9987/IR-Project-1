@@ -14,10 +14,10 @@ object LogisticRegression{
   }
 
   //the types of labels to train
-  var labelTypes = List("topic","country")
+  var labelTypes = List("topic","country") //we ignore industry codes
   //for a given labelType, holds the map from codes (string) to theta vectors
   var thetasMap : Map[String, Map[String, DenseVector[Double]]] = Map()
-  //for a given labelType, holds the map from codes (string) to the probability cutoff
+  //for a given labelType, the probability cutoff
   var cutoffMap : Map[String, Double] = Map()
   //the reader to use
   var reader = new Reader(300, 1, true)
@@ -69,8 +69,7 @@ object LogisticRegression{
 
       //Find optimal cutoff value such that the proportion of codes assigned is the same in the training and validation sets
       var averageCodesPerDoc = totalCodesAssigned / 50000.0
-      logger.log(s"average codes expected for type $labelType: $averageCodesPerDoc")
-      var cut = new cutoffFinder(averageCodesPerDoc / codes.size) //proportion of codes assigned to total codes
+      var cut = new cutoffFinder(averageCodesPerDoc / codes.size) //arg : proportion of codes assigned to total codes
       for (validationDoc <- reader.toBagOfWords("validation")) {
         var codeProbability = thetasMap(labelType).seq.foreach {
           case (code, theta) => cut.add(logistic(theta.dot(validationDoc.x)))
@@ -90,6 +89,7 @@ object LogisticRegression{
   def validate(setName : String = "validation") : Double = {
     var assignedCodes: Map[Int,Set[String]] = Map()
     var realCodes : Map[Int, Set[String]] = Map()
+
     //assign codes
     for (labelType <- labelTypes) {
       for (validationDoc <- reader.toBagOfWords(setName)) {
@@ -103,23 +103,24 @@ object LogisticRegression{
       }
     }
 
-    //compare predicted values with read values
+    //compare predicted values with expected values
     var buf = scala.collection.mutable.ListBuffer.empty[Tuple2[Set[String], Set[String]]]
     assignedCodes.foreach {
       case (itemid, assigned) =>
       buf += new Tuple2(assignedCodes(itemid) , realCodes(itemid))
     }
 
-    logger.log(s"average codes assigned per doc in total: ${1.0 * assignedCodes.map(_._2.size).sum / assignedCodes.size}")
-
-
     logger.log("Computing score")
+    //calculate precision and recall for each document
     val validationPrecisionRecall = buf.map { case (actual, expected) =>
       (actual.intersect(expected).size.toDouble / (actual.size + scala.Double.MinPositiveValue),
         actual.intersect(expected).size.toDouble / (expected.size + scala.Double.MinPositiveValue))
     }
+
+    //calculate overall F1 score
     val validationF1 = validationPrecisionRecall
       .map { case (precision, recall) => 2 * precision * recall / (precision + recall + scala.Double.MinPositiveValue)}
+
     logger.log(s"average precision : ${validationPrecisionRecall.map(_._1).sum / 10000.0}")
     logger.log(s"average recall   :  ${validationPrecisionRecall.map(_._2).sum / 10000.0}")
     logger.log(s"score : ${validationF1.sum / 10000.0}")
@@ -131,11 +132,12 @@ object LogisticRegression{
     */
   def predict(setName : String = "test") : Unit = {
       var assignedCodes: Map[Int,Set[String]] = Map()
+
       //assign codes
       for (labelType <- labelTypes) {
         for (testDoc <- reader.toBagOfWords(setName)) {
           if (!assignedCodes.contains(testDoc.itemId)) {
-            assignedCodes(testDoc.itemId) = Set()
+            assignedCodes(testDoc.itemId) = Set() //first encounter of document
           }
           assignedCodes(testDoc.itemId) ++= //adds the codes
             (thetasMap(labelType).map { case (code, theta) => (logistic(theta.dot(testDoc.x)), code)
@@ -146,7 +148,7 @@ object LogisticRegression{
 
       import java.io.PrintWriter
       import java.io.File
-      val pw = new PrintWriter(new File("prediction.txt"))
+      val pw = new PrintWriter(new File("prediction-logistic.txt"))
       assignedCodes.toSeq.sortBy(_._1).foreach{ case(id, codes) =>
         var line = s"$id "
         codes.foreach(x=> line = line.concat(x + " "))
