@@ -1,9 +1,7 @@
 /**
   * Created by Philip on 31/10/16.
   */
-
 import java.io.{File, PrintWriter}
-
 import breeze.linalg._
 import breeze.numerics.log
 import ch.ethz.dal.tinyir.io.ReutersRCVStream
@@ -11,33 +9,43 @@ import ch.ethz.dal.tinyir.processing.Tokenizer
 import scala.io.Source
 import scala.annotation.tailrec
 
-
-
 /**
-  *
+  * Implementation of the Naive Bayes classifier on the reuters dataset.
   */
 object NaiveBayes{
 
+  // the threshold for the topic-codes (has been evaluated using cross-validation)
   var topicThreshold:Double = -10.2
+
+  // the threshold for the country-codes (has been evaluated using cross-validation)
   var countryThreshold:Double = -9.4
-  var industryThreshold:Double = 0
+
+  // the logger we will use to print infos & progress
   val logger = new Logger("NaiveBayes")
+
+  // the probabilities P(document | category), represented as a Hashmap mapping codes to bag-of-word-vectors
   var documentCategoryProbabilities = scala.collection.mutable.HashMap.empty[String,DenseVector[Double]].par
-  //var documentCategoryProbabilitiesCountry = scala.collection.mutable.HashMap.empty[String,DenseVector[Double]].par
-  val reader = new Reader(3, 0.2, false) //create reader with no bias
+
+  // our reader for the topic-codes, minimum-occurrence=3, maximum-occurrence=0.2*docCount, no bias
+  val reader = new Reader(3, 0.2, false)
+
+  // our reader for the country-codes, minimum-occurrence=20, no maximum-occurrence, no bias
   val titleReader = new TitleReader(20,1,false)
+
+  // set of all topic-codes
   val topicCodes = Set[String](reader.codes.toList: _*).intersect(Codes.fromString("topic"))
-  val industryCodes = Set[String](reader.codes.toList: _*).intersect(Codes.fromString("industry"))
+
+  // set of all country-codes
   val countryCodes = Set[String](reader.codes.toList: _*).intersect(Codes.fromString("country"))
 
   /**
-    *
-    * @param wordCounts
-    * @param alpha
-    * @param code
-    * @param bowStream
-    * @param vocabSize
-    * @return
+    * Calculates the probability P(w | c)
+    * @param wordCounts bag-of-words vector of the dictionary, initially all 1
+    * @param alpha smoothing parameter (default: 1 for Laplace-smoothing)
+    * @param code  current class-code to be calculated
+    * @param bowStream stream of training documents
+    * @param vocabSize the size of the full bag-of-words vector
+    * @return log(P(w | c)) where w is a bag-of-words-vector consisting of all words in the reader dictionary
     */
   @tailrec
   def calculateWordCategoryProbabilities(wordCounts: DenseVector[Double], alpha: Double, code: String, bowStream: Stream[DataPoint], vocabSize: Double):
@@ -52,13 +60,12 @@ object NaiveBayes{
       }else{
         calculateWordCategoryProbabilities(wordCounts, alpha, code, bowStream.tail, vocabSize)
       }
-
     }
   }
 
   /**
-    *
-    * @param filename
+    * Saves the trained DocumentCategoryProbabilities to filename
+    * @param filename the full path to the file
     */
   def saveDocumentCategoryProbabilitiesToFile(filename:String): Unit ={
     logger.log("Training done. Saving model...")
@@ -68,8 +75,8 @@ object NaiveBayes{
   }
 
   /**
-    *
-    * @param filename
+    * Loads the trained DocumentCategoryProbabilities from filename (full path)
+    * @param filename full path to saved DocumentCategoryProbabilitiesFile
     */
   def loadDocumentCategoryProbabilitiesFromFile(filename:String): Unit ={
     logger.log("Loading saved model from file")
@@ -83,8 +90,8 @@ object NaiveBayes{
   }
 
   /**
-    *
-    * @return
+    * Calculates the predictions on the validation set
+    * @return a list of (predicted, expected) tuples
     */
   def getValidationResult(): List[(Set[String],Set[String])] ={
     var topicCodesResult = reader.toBagOfWords("validation").map(dp =>
@@ -103,11 +110,12 @@ object NaiveBayes{
 
     topicCodesResult.zip(countryCodesResult).map{ case ((topicSet, expectedSet), countrySet) =>
       (topicSet.union(countrySet), expectedSet)}.toList
-
   }
 
   /**
-    *
+    * Calculates the performance on the validation set and prints the result
+    * The thresholds used are defined as global variables 'topicThreshold' and
+    * 'countryThreshold'
     */
   def validate(): Unit ={
     logger.log("Running trained model on validation data...")
@@ -124,7 +132,10 @@ object NaiveBayes{
   }
 
   /**
-    *
+    * Predicts the codes for the test-set and stores the result in the format
+    * docId code1 code2 code3 ... (separated by whitespace, each doc on new line)
+    * The thresholds used are defined as global variables 'topicThreshold' and
+    * 'countryThreshold'
     * @param k
     */
   def predict(filename: String): Unit ={
@@ -151,7 +162,8 @@ object NaiveBayes{
   }
 
   /**
-    *
+    * Trains the model on the trainingdata, using a different reader for the
+    * topic-codes and the country-codes (industry-codes are not trained)
     */
   def train(): Unit ={
     logger.log("Training Model...")
@@ -184,11 +196,10 @@ object NaiveBayes{
         bowStream = titleReader.toBagOfWords("train"),
         vocabSize = titleReader.reducedDictionarySize)
     }
-
   }
 
   /**
-    *
+    * Main method to test the class
     * @param args
     */
   def main(args: Array[String]): Unit = {
@@ -198,6 +209,5 @@ object NaiveBayes{
     //loadDocumentCategoryProbabilitiesFromFile("./src/main/resources/data/model/bayesPar_TopicCountryCombinedSubmission.csv")
     validate()
     //predict("ir-project-2016-1-7-nb.txt")
-
   }
 }
