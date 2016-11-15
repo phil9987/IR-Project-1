@@ -27,7 +27,7 @@ class NaiveBayes(topicThreshold: Double, countryThreshold:Double){
   private val reader = new Reader(3, 0.2, false)
 
   // our reader for the country-codes, minimum-occurrence=20, no maximum-occurrence, no bias
-  private val titleReader = new TitleReader(20,1,false)
+  private val titleReader = new TitleReader(20, 1, false)
 
   // set of all topic-codes
   private val topicCodes = Set[String](reader.codes.toList: _*).intersect(Codes.fromString("topic"))
@@ -45,8 +45,11 @@ class NaiveBayes(topicThreshold: Double, countryThreshold:Double){
     * @return log(P(w | c)) where w is a bag-of-words-vector consisting of all words in the reader dictionary
     */
   @tailrec
-  private def calculateWordCategoryProbabilities(wordCounts: DenseVector[Double], alpha: Double, code: String, bowStream: Stream[DataPoint], vocabSize: Double):
-      DenseVector[Double] = {
+  private def calculateWordCategoryProbabilities(wordCounts: DenseVector[Double],
+                                                 alpha: Double,
+                                                 code: String,
+                                                 bowStream: Stream[DataPoint],
+                                                 vocabSize: Double): DenseVector[Double] = {
     if (bowStream.isEmpty) {
       log(wordCounts) - log(sum(wordCounts) + alpha*vocabSize)
     }
@@ -97,31 +100,34 @@ class NaiveBayes(topicThreshold: Double, countryThreshold:Double){
     var codes = Set[String](reader.codes.toList: _*).intersect(topicCodes)
 
     logger.log(s"${codes.size} codes will be trained...")
-    codes.foreach(code => documentCategoryProbabilities += code -> DenseVector.ones[Double](reader.reducedDictionarySize))
+    codes.foreach(code =>
+      documentCategoryProbabilities += (code -> DenseVector.ones[Double](reader.reducedDictionarySize) ))
     var codesDone = Set[String]()
     documentCategoryProbabilities = documentCategoryProbabilities.map { case (code, wordCategoryProbabilities) =>
       logger.log(codesDone.size + " codes passed", "trainI", 5)
       codesDone += code
-      code -> calculateWordCategoryProbabilities(wordCounts = wordCategoryProbabilities,
-        alpha = 1.0,
-        code = code,
-        bowStream = reader.toBagOfWords("train"),
-        vocabSize = reader.reducedDictionarySize)
+      (code -> calculateWordCategoryProbabilities(wordCounts = wordCategoryProbabilities,
+                                                  alpha = 1.0,
+                                                  code = code,
+                                                  bowStream = reader.toBagOfWords("train"),
+                                                  vocabSize = reader.reducedDictionarySize))
     }
 
-    // train countryCodes with TitleReader...
-    codes = Set[String](titleReader.codes.toList: _*).intersect(countryCodes)
+    // train countryCodes with TitleReader..
+    codes = Set[String](titleReader.codes.toList: _*).intersect(countryCodes)   //get country codes
     logger.log(s"${codes.size} codes will be trained...")
-    codes.foreach(code => documentCategoryProbabilities += code -> DenseVector.ones[Double](titleReader.reducedDictionarySize))
-    codesDone = Set[String]()
-    val documentCategoryProbabilitiesCountry = documentCategoryProbabilities.filter(countryCodes contains _._1).map { case (code, wordCategoryProbabilities) =>
+    codes.foreach(code =>
+      documentCategoryProbabilities += (code -> DenseVector.ones[Double](titleReader.reducedDictionarySize) ))
+    codesDone = Set[String]()     // for logging
+    val documentCategoryProbabilitiesCountry = documentCategoryProbabilities.filter(countryCodes contains _._1)
+      .map { case (code, wordCategoryProbabilities) =>
       logger.log(codesDone.size + " codes passed", "trainI", 5)
       codesDone += code
-      code -> calculateWordCategoryProbabilities(wordCounts = wordCategoryProbabilities,
-        alpha = 1.0,
-        code = code,
-        bowStream = titleReader.toBagOfWords("train"),
-        vocabSize = titleReader.reducedDictionarySize)
+      code -> calculateWordCategoryProbabilities( wordCounts = wordCategoryProbabilities,
+                                                  alpha = 1.0,
+                                                  code = code,
+                                                  bowStream = titleReader.toBagOfWords("train"),
+                                                  vocabSize = titleReader.reducedDictionarySize)
     }
     // merge documentCategoryProbabilitiesCountry into documentCategoryProbabilities
     documentCategoryProbabilitiesCountry.foreach(dp => documentCategoryProbabilities += dp)
@@ -133,15 +139,17 @@ class NaiveBayes(topicThreshold: Double, countryThreshold:Double){
     */
   def getValidationResult(): List[(Set[String],Set[String])] ={
     var topicCodesResult = reader.toBagOfWords("validation").map(dp =>
-      (documentCategoryProbabilities.filter(topicCodes contains _._1).map { case (code, wordCategoryProbabilities) =>
-        (log(reader.getProbabilityOfCode(code)) + dp.x.dot(wordCategoryProbabilities) / sum(dp.x), code)}
+      (documentCategoryProbabilities.filter(topicCodes contains _._1)
+        .map { case (code, wordCategoryProbabilities) =>
+          (log(reader.getProbabilityOfCode(code)) + dp.x.dot(wordCategoryProbabilities) / sum(dp.x), code)}
         .toList.sortBy(_._1)
         .filter{ case (score,code)=> (score > topicThreshold)}
         .map(_._2).toSet, dp.y)).toList
 
     var countryCodesResult = titleReader.toBagOfWords("validation").map(dp =>
-      (documentCategoryProbabilities.filter(countryCodes contains _._1).map { case (code, wordCategoryProbabilities) =>
-        (log(reader.getProbabilityOfCode(code)) + dp.x.dot(wordCategoryProbabilities) / sum(dp.x), code)}
+      (documentCategoryProbabilities.filter(countryCodes contains _._1)
+        .map { case (code, wordCategoryProbabilities) =>
+          (log(reader.getProbabilityOfCode(code)) + dp.x.dot(wordCategoryProbabilities) / sum(dp.x), code)}
         .toList.sortBy(_._1)
         .filter{ case (score,code)=> (score > countryThreshold)}
         .map(_._2).toSet)).toList
@@ -166,8 +174,12 @@ class NaiveBayes(topicThreshold: Double, countryThreshold:Double){
           actual.intersect(expected).size.toDouble / (expected.size + scala.Double.MinPositiveValue))
       }
       val validationF1 = validationPrecisionRecall
-        .map { case (precision, recall) => 2 * precision * recall / (precision + recall + scala.Double.MinPositiveValue) }
-      logger.log(s"Topic-Threshold = $topicThreshold, Country-Threshold = $countryThreshold, industryThreshold = 0.0, F1-Average= ${validationF1.sum / validationF1.length}")
+        .map { case (precision, recall) =>
+          (2 * precision * recall / (precision + recall + scala.Double.MinPositiveValue)) }
+      logger.log( s"Topic-Threshold = $topicThreshold, " +
+                  s"Country-Threshold = $countryThreshold, " +
+                  s"industryThreshold = 0.0, " +
+                  s"F1-Average= ${validationF1.sum / validationF1.length}")
   }
 
   /**
@@ -179,24 +191,30 @@ class NaiveBayes(topicThreshold: Double, countryThreshold:Double){
     */
   def predict(filename: String): Unit ={
     logger.log("Predicting codes for test-set")
-    val topicCodesTestResult = reader.toBagOfWords("test").map(dp => (dp.itemId, documentCategoryProbabilities.filter(topicCodes contains _._1).map { case (code, wordCategoryProbabilities) =>
-        (log(reader.getProbabilityOfCode(code)) + dp.x.dot(wordCategoryProbabilities) / sum(dp.x), code)}
+    val topicCodesTestResult = reader.toBagOfWords("test").map(dp =>
+      (dp.itemId, documentCategoryProbabilities.filter(topicCodes contains _._1)
+                    .map { case (code, wordCategoryProbabilities) =>
+                      (log(reader.getProbabilityOfCode(code)) + dp.x.dot(wordCategoryProbabilities) / sum(dp.x), code)}
         .toList
         .filter{ case (score, code) => (score > topicThreshold)}
         .map(_._2).toSet)).toList
 
-    val countryCodesTestResult = titleReader.toBagOfWords("test").map(dp => (documentCategoryProbabilities.filter(countryCodes contains _._1).map { case (code, wordCategoryProbabilities) =>
-        (log(reader.getProbabilityOfCode(code)) + dp.x.dot(wordCategoryProbabilities) / sum(dp.x), code)}
+    val countryCodesTestResult = titleReader.toBagOfWords("test").map(dp =>
+      (documentCategoryProbabilities.filter(countryCodes contains _._1)
+        .map { case (code, wordCategoryProbabilities) =>
+          (log(reader.getProbabilityOfCode(code)) + dp.x.dot(wordCategoryProbabilities) / sum(dp.x), code)}
         .toList
         .filter{ case (score, code) => (score > countryThreshold)}
         .map(_._2).toSet)).toList
 
-    val testResult = topicCodesTestResult.zip(countryCodesTestResult).map{ case ((docId, topicSet), countrySet) =>
-      (docId, topicSet.union(countrySet))}.toList
+    val testResult = topicCodesTestResult.zip(countryCodesTestResult)
+      .map{ case ((docId, topicSet), countrySet) =>
+        (docId, topicSet.union(countrySet))}.toList
     logger.log("Prediction done. Saving test-output...")
 
     val out = new PrintWriter(new File(filename))
-    testResult.map { case (docId, predictedCodes) => predictedCodes.toArray.mkString(docId + " ", " ", "\n") }.seq.foreach(out.write(_))
+    testResult.map { case (docId, predictedCodes) =>
+      predictedCodes.toArray.mkString(docId + " ", " ", "\n") }.seq.foreach(out.write(_))
     out.close
   }
 }
