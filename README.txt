@@ -14,4 +14,12 @@ src/main
 └── scala
 
 Additionally tinyir.jar must be placed in lib/
-Once this is done the program can be ran with sbt run.
+Once this is done the program can be ran with
+
+ $> sbt
+ followed by
+
+ $> run logisitc
+ $> run naive
+ $> run svm
+

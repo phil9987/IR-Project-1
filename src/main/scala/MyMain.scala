@@ -12,11 +12,9 @@ object Main{
       NaiveBayes.predict("ir-project-2016-1-7-nb.txt")
 
     }else if (args(0) == "logistic"){
-/*
       LogisticRegression.train("train")
-      LogisticRegression.evaluate("validation")
+      LogisticRegression.validate("validation")
       LogisticRegression.predict("test")
-*/
     }else if (args(0) == "svm"){
       val svm = new SVM(1e-4) //TODO
       svm.train()
