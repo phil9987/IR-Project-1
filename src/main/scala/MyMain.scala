@@ -9,7 +9,7 @@ object Main{
     if (args(0) == "bayes"){
       NaiveBayes.train()
       NaiveBayes.validate()
-      NaiveBayes.predict()
+      NaiveBayes.predict("ir-project-2016-1-7-nb.txt")
 
     }else if (args(0) == "logistic"){
 /*

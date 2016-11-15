@@ -127,7 +127,7 @@ object NaiveBayes{
     *
     * @param k
     */
-  def predict(): Unit ={
+  def predict(filename: String): Unit ={
     logger.log("Predicting codes for test-set")
     val topicCodesTestResult = reader.toBagOfWords("test").map(dp => (dp.itemId, documentCategoryProbabilities.filter(topicCodes contains _._1).map { case (code, wordCategoryProbabilities) =>
         (log(reader.getProbabilityOfCode(code)) + dp.x.dot(wordCategoryProbabilities) / sum(dp.x), code)}
@@ -145,7 +145,7 @@ object NaiveBayes{
       (docId, topicSet.union(countrySet))}.toList
     logger.log("Prediction done. Saving test-output...")
 
-    val out = new PrintWriter(new File("./ir-project-2016-1-7-nb.txt"))
+    val out = new PrintWriter(new File("./" + filename))
     testResult.map { case (docId, predictedCodes) => predictedCodes.toArray.mkString(docId + " ", " ", "\n") }.seq.foreach(out.write(_))
     out.close
   }
@@ -155,9 +155,6 @@ object NaiveBayes{
     */
   def train(): Unit ={
     logger.log("Training Model...")
-    //val codes = Set[String](reader.codes.toList: _*)
-    //val codes = debugCodes
-    //val codes = Set[String](reader.codes.toList: _*).intersect(countryCodes)
     var codes = Set[String](reader.codes.toList: _*).intersect(topicCodes)
 
     logger.log(s"${codes.size} codes will be trained...")
@@ -173,12 +170,12 @@ object NaiveBayes{
         vocabSize = reader.reducedDictionarySize)
     }
 
-    /*// train countryCodes with TitleReader...
+    // train countryCodes with TitleReader...
     codes = Set[String](titleReader.codes.toList: _*).intersect(countryCodes)
     logger.log(s"${codes.size} codes will be trained...")
-    codes.foreach(code => documentCategoryProbabilities += code -> DenseVector.ones[Double](reader.reducedDictionarySize))
+    codes.foreach(code => documentCategoryProbabilities += code -> DenseVector.ones[Double](titleReader.reducedDictionarySize))
     codesDone = Set[String]()
-    documentCategoryProbabilities = documentCategoryProbabilities.map { case (code, wordCategoryProbabilities) =>
+    documentCategoryProbabilities = documentCategoryProbabilities.filter(countryCodes contains _._1).map { case (code, wordCategoryProbabilities) =>
       logger.log(codesDone.size + " codes passed", "trainI", 5)
       codesDone += code
       code -> calculateWordCategoryProbabilities(wordCounts = wordCategoryProbabilities,
@@ -186,7 +183,7 @@ object NaiveBayes{
         code = code,
         bowStream = titleReader.toBagOfWords("train"),
         vocabSize = titleReader.reducedDictionarySize)
-    }*/
+    }
 
   }
 
@@ -195,13 +192,12 @@ object NaiveBayes{
     * @param args
     */
   def main(args: Array[String]): Unit = {
-    //train()
-    //saveDocumentCategoryProbabilitiesToFile("./src/main/resources/data/model/bayesPar_3_0.2_topicCodes_stemmed.csv")
+    train()
+    saveDocumentCategoryProbabilitiesToFile("./src/main/resources/data/model/bayesParCombinedSubmission.csv")
     //loadDocumentCategoryProbabilitiesFromFile("./src/main/resources/data/model/bayesPar_3_0.2_topicCodes_stemmed.csv")
-    loadDocumentCategoryProbabilitiesFromFile("./src/main/resources/data/model/bayesPar_TopicCountryCombinedSubmission.csv")
-
-    //validate()
-    predict()
+    //loadDocumentCategoryProbabilitiesFromFile("./src/main/resources/data/model/bayesPar_TopicCountryCombinedSubmission.csv")
+    validate()
+    //predict("ir-project-2016-1-7-nb.txt")
 
   }
 }
