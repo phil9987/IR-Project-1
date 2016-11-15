@@ -67,17 +67,15 @@ The training of the model needs constantly 1.3GB of RAM. The training of the top
     As in naive bayes, the three code types were treated independently :
     \begin{description}
     \item[Topic codes] For topic codes we tried to find a cutoff value such that the average number of codes assigned to a document remained the same in our prediction as in the test set. This was achieved with a "cutoffFinder" construct consisting of two priority queues. With this approach reached an F1-score of around 0.35 for topic codes.
-    \item[Country codes] Again,  we had even better results when using the document title instead of the content. Also, the cutoff value was determined manually by trying different values : The cutoffFinder approach lead to worse results since a codes were distributed unevenly across documents. With our approach we reached a F1-score of around 0.44
-    \item[Industry codes] As mentioned, we never predicted any Industry codes, because the impact on precision was too high.
+    \item[Country codes] Again,  we had even better results when using the document title instead of the content. Also, the cutoff value was determined manually by trying different values : The cutoffFinder approach lead to worse results since the resulting codes were assigned unevenly across the documents. With our approach we reached a F1-score of around 0.44
+    \item[Industry codes] As mentioned, we never predicted any Industry codes, because the negative impact on precision was too high.
     \end{description}
 
-    Predicting the three label types separately and combining the predictions into one, lead to an F1-score of around 0.36.
-
-    Our algorithm required approximately 1.9 GB of memory and took around 12 minutes to compute an intel i7 laptop (2.9GHz) with 8GB of RAM.
+    Predicting the three label types separately and combining the predictions into one lead to an F1-score of around 0.36. One attempt at increasing the performance was to lower the learning rate, such that it would increase, for example, after 10 documents instead of 1. Also, different normalization techniques were tried, but none lead to significant improvement in performance. Our final algorithm required approximately 1.9 GB of memory and took around 12 minutes to compute an intel i7 laptop (2.9GHz) with 8GB of RAM.
 
 \vspace{-2mm}
 \section*{SVM}
-The algorithm shown in the lecture is the well-known pegsasos algorithm\cite{shalev-shwartz_pegasos:_2011,shalev-shwartz_pegasos:_????}. For the implementation we trained one SVM per category occurring in the training data in an all-vs-one approach.
+The algorithm shown in the lecture is the well-known pegasos algorithm\cite{shalev-shwartz_pegasos:_2011,shalev-shwartz_pegasos:_????}. For the implementation we trained one SVM per category occurring in the training data in an all-vs-one approach.
 Table~\ref{table:svmResults} shows the results of various approaches.
 The data was preprocessed as introduced before with the use of homogeneous coordinates (bias term) and without. The listed papers suggest not using a bias with the normal formulation of the pegasos algorithm or to adjust it if doing so, as it undermines the convergences guarantee. As it only provided a very small change, we therefore did not include a bias. For the parameter $\lambda$ the optimal choice seems to be around $10^{-4} - 10^{5}$. Seems consistent when changing other parameter of the algorithm. Thus further tests were only run with those $\lambda$ values.
 
