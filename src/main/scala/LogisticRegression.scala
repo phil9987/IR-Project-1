@@ -20,7 +20,7 @@ class LogisticRegression{
   //for a given labelType, the probability cutoff
   var cutoffMap : Map[String, Double] = Map()
   //the reader to use
-  var reader = new Reader(20, 1, true)
+  var reader = new Reader(10, 1, true)
 
   /**
   * Trains the model on the dataset specified.
