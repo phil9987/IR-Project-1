@@ -53,7 +53,7 @@ class cutoffFinder(proportion : Double){
 
   /**
     * Returns the obtained cutoff value
-    * @return : the cutoff value (between the two heaps)
+    * @return : the cutoff value (value between the two priority queues.)
     */
   def getCutoff(): Double ={
     (maxHeap.head + minHeap.head) / 2.0

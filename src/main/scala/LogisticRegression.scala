@@ -6,7 +6,7 @@ import scala.collection.mutable.Set
 
 import breeze.linalg.{SparseVector, Vector, DenseVector}
 
-object LogisticRegression{
+class LogisticRegression{
 
   val logger = new Logger("LogisticRegression")
   def logistic(x: Double): Double = {
@@ -20,7 +20,7 @@ object LogisticRegression{
   //for a given labelType, the probability cutoff
   var cutoffMap : Map[String, Double] = Map()
   //the reader to use
-  var reader = new Reader(300, 1, true)
+  var reader = new Reader(20, 1, true)
 
   /**
   * Trains the model on the dataset specified.
@@ -156,10 +156,21 @@ object LogisticRegression{
       }
       pw.close()
     }
-
-  def main(args : Array[String]) : Unit = {
-    train()
-    validate()
-    predict()
-  }
 }
+
+object LogisticRegression {
+  def main(args: Array[String]): Unit = {
+
+    // Please not that this version uses the same process for country codes as for industry codes
+    // (i.e., using the cutoffFinder approach)
+    // For the predictions we handed in, the cutoff was manually set to 0.525 for the country codes.
+
+
+    val logreg = new LogisticRegression()
+      logreg.train()
+      logreg.validate()
+      logreg.predict()
+
+    }
+  }
+
