@@ -9,7 +9,7 @@ import java.io._
   * Creates an SVM, with the given parameter.
   * @param lambda Lambda regulation parameter for the SVM algorithm.
   */
-class SVM(lambda: Double, r: BaseReader)
+class SVM(lambda: Double)
 {
   val logger = new Logger("SVM")
   logger.log("Reading Data")
@@ -18,6 +18,7 @@ class SVM(lambda: Double, r: BaseReader)
   val eps = 1e-5
 
   //the reader used for the SVM
+  val r = new ReaderTfIdfWeighted(30,1,false)
   //already incorporates the pre-processing
   //different choice of reader and its arguments results in different pre-processing
   val codes = scala.collection.immutable.Set[String](r.codes.toList: _*)
@@ -153,9 +154,10 @@ class SVM(lambda: Double, r: BaseReader)
 object SVM {
   def main(args: Array[String]): Unit = {
 
-    val svm = new SVM(1e-5, new ReaderTfIdfWeighted(3,1,false))
+    val svm = new SVM(1e-5)
     svm.train()
     //svm.storeThetaToFile("ir-2016-1-project-7-svm.csv")
+    svm.validate()
     svm.predict("ir-2016-1-project-7-svm.txt")
 
   }
