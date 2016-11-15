@@ -100,13 +100,13 @@ class SVM(lambda: Double)
 
     //for each word in validation set, predict labels
     val validationResult = r.toBagOfWords("validation").map(dp =>
-                                                              (thetas.map {
+                                                              {val a = thetas.map {
                                                                             case (code, theta) =>
-                                                                              (Math.signum(theta.dot(
-                                                                                breeze.linalg.normalize(dp.x))),
-                                                                              code)
-                                                                          }.filter(_._1 > 0).values
-                                                                .toSet, dp.y.intersect(codes) )).toList
+                                                                              (code, Math.signum(theta.dot(
+                                                                                breeze.linalg.normalize(dp.x))))
+                                                                          }
+                                                                (a.filter(_._2 > 0).keys
+                                                                .toSet, dp.y.intersect(codes) )}).toList
 
     //calculate precession and recall for each document
     val validationPrecisionRecall = validationResult.map { case (actual, expected) =>
@@ -129,9 +129,9 @@ class SVM(lambda: Double)
   def predict(filename : String) = {
 
     //for each word in
-    val testResult = r.toBagOfWords("test").map(dp =>  thetas.map { case (code, theta) => (Math.signum
-                                                              (theta.dot(breeze.linalg.normalize(dp.x))), code)
-                                                                          }.filter(_._1 > 0).values
+    val testResult = r.toBagOfWords("test").map(dp =>  thetas.map { case (code, theta) => (code, Math.signum
+                                                              (theta.dot(breeze.linalg.normalize(dp.x))))
+                                                                          }.filter(_._2 > 0).keys
                                                                 .toSet.mkString(dp.itemId.toString + " ", " ", "\n"))
       .toList
 
