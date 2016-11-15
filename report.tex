@@ -3,6 +3,7 @@
 \usepackage[utf8]{inputenc}
 \usepackage{fancyhdr}
 \usepackage[a4paper, top=2.2cm, left=1.5cm, right=1.5cm, bottom=1.75cm]{geometry}
+\linespread{0.95}
 \usepackage{titling}
 
 \usepackage{todonotes}
@@ -77,11 +78,11 @@ The training of the model needs constantly 1.3GB of RAM. The training of the top
 \section*{SVM}
 The algorithm shown in the lecture is the well-known pegasos algorithm\cite{shalev-shwartz_pegasos:_2011,shalev-shwartz_pegasos:_????}. For the implementation we trained one SVM per category occurring in the training data in an all-vs-one approach.
 Table~\ref{table:svmResults} shows the results of various approaches.
-The data was preprocessed as introduced before with the use of homogeneous coordinates (bias term) and without. The listed papers suggest not using a bias with the normal formulation of the pegasos algorithm or to adjust it if doing so, as it undermines the convergences guarantee. As it only provided a very small change, we therefore did not include a bias. For the parameter $\lambda$ the optimal choice seems to be around $10^{-4} - 10^{5}$. Seems consistent when changing other parameter of the algorithm. Thus further tests were only run with those $\lambda$ values.
+The data was preprocessed as introduced before with the use of homogeneous coordinates (bias term) and without. The listed papers suggest not using a bias with the normal formulation of the pegasos algorithm or to adjust it if doing so, as it undermines the convergences guarantee. As it only provided a very small change, we therefore did not include a bias. For the parameter $\lambda$ the optimal choice seems to be around $10^{-4} - 10^{6}$. $10^{-5}$ is the point where both precission an recall are optimal, higher values have better precission, lower better recall, but always at the cost of the other parameter. This seems consistent when changing other parameter of the algorithm. Thus further tests were only run with those $\lambda$ values.
 
 Reducing the dictionary size helped to reduce the run time of the algorithm and slightly increased the score. So the final version (bold) uses only tokens extracted from titles, but all of them.
 
-Using the absolute count as weights of the bag-of-words vectors was equivalent to boolean weights when it comes to performance and slightly better than tf-idf weights.
+When it comes to the different weighting schemes for bag-of-words, tf-idf is clearly the best, as suggested in the literature \cite{ozgur_text_2005}. Closely followed by absolut word-couns and not so close by boolean weights.
 
 \begin{table}[h]
 \centering
@@ -90,27 +91,37 @@ Using the absolute count as weights of the bag-of-words vectors was equivalent t
 	\hline
 	$\lambda$ & \texttt{minOccurrence} & \texttt{maxOccurrenceRate} & Dictionary,Weights & Resulting \# Words & Run Time & Memory Consumption & Avg. Precession & Avg. Recall & Avg. F1-Score\\
 	\hline
-	1 & 1 & 0.2 & tokens, count-weights & 109995 & 123 min & 8 GB & 0.295 & 0.053 & 0.08\\ \hline
-	1 & 3 & 0.2 & tokens, count-weights & 39249 & 28 min & 3.4 GB & 0.30 & 0.053 & 0.09\\ \hline
-	0.1 & 3 & 0.2 & tokens, count-weights & 39249 & 28 min & 3.7 GB & 0.30 & 0.053 & 0.09\\ \hline
-	0.01 & 3 & 0.2 & tokens, count-weights & 39249 & 19 min & 3.4 GB & 0.55 & 0.11 & 0.19\\ \hline
-	0.001 & 3 & 0.2 & tokens, count-weights & 39249 & 15 min & 3.5 GB & 0.88 & 0.19 & 0.31\\ \hline
-	0.0001 & 3 & 0.2 & tokens, count-weights & 39249 & 14 min & 3.4 GB & 0.92 & 0.20 & 0.33\\ \hline
-	0.00001 & 3 & 0.2 & tokens, count-weights & 39249 & 14 min & 3.4GB & 0.92 & 0.20 & 0.33\\ \hline
-	0.0001 & 10 & 0.2 & tokens, count-weights & 17521 & 7 min & 3 GB & 0.92 & 0.20 & 0.33\\ \hline
-	0.0001 & 20 & 0.2 & tokens, count-weights & 11397 & 5 min & 2.9 GB & 0.92 & 0.20 & 0.33\\ \hline
-	0.0001 & 20 & 1 & tokens, count-weights & 11420 & 5 min & 3.1 GB & 0.92 & 0.20 & 0.33\\ \hline
-	\textbf{0.0001} & \textbf{0} & \textbf{1} & \textbf{titles, count-weights} & \textbf{22871} & \textbf{8 min} & \textbf{3.1 GB} & \textbf{0.94} & \textbf{0.21} & \textbf{0.34}\\ \hline
-		0.0001 & 0 & 1 & titles, boolean weights & 22871 & 8 min & 3.1 GB & 0.94 & 0.21 & 0.34\\ \hline
-	0.0001 & 0 & 1 & titles, tf-idf weights & 22871 & 8 min & 3.1 GB & 0.90 & 0.20 & 0.32\\ \hline
+	1 & 1 & 0.2 & tokens, count-weights & 109995 & 123 min & 8 GB & 0.34 & 0.09 & 0.14\\ \hline
+	1 & 3 & 0.2 & tokens, count-weights & 39249 & 28 min & 3.4 GB & 0.35 & 0.09 & 0.14\\ \hline
+	0.1 & 3 & 0.2 & tokens, count-weights & 39249 & 28 min & 3.7 GB & 0.35 & 0.09 & 0.14\\ \hline
+	0.01 & 3 & 0.2 & tokens, count-weights & 39249 & 19 min & 3.4 GB & 0.64 & 0.19 & 0.27\\ \hline
+	0.001 & 3 & 0.2 & tokens, count-weights & 39249 & 15 min & 3.5 GB & 0.88 & 0.41 & 0.52\\ \hline
+	0.0001 & 3 & 0.2 & tokens, count-weights & 39249 & 14 min & 3.4 GB & 0.91 & 0.63 & 0.71\\ \hline
+	0.00001 & 3 & 0.2 & tokens, count-weights & 39249 & 17 min & 3.4GB & 0.86 & 0.73 & 0.76\\ \hline
+	0.0001 & 10 & 0.2 & tokens, count-weights & 17521 & 7 min & 3 GB & 0.91 & 0.63 & 0.71\\ \hline
+	0.0001 & 20 & 0.2 & tokens, count-weights & 11397 & 5 min & 3 GB & 0.91 & 0.63 & 0.71\\ \hline
+	0.0001 & 20 & 0.2 & tokens, boolean weights & 11397 & 5 min & 2.9 GB & 0.91 & 0.59 & 0.68\\ \hline
+	0.0001 & 20 & 0.2 & tokens, tf-idf weights & 11397 & 5 min & 3.1 GB & 0.93 & 0.65 & 0.73\\ \hline
+	0.0001 & 30 & 0.2 & tokens, boolean weights & 8785 & 4 min & 3.1 GB & 0.91 & 0.59 & 0.68\\ \hline
+	0.0001 & 30 & 0.2 & tokens, count-weights & 8785 & 4 min & 3.1 GB & 0.91 & 0.63 & 0.71\\ \hline
+	0.0001 & 30 & 0.2 & tokens, tf-idf weights & 8785 & 4 min& 3.1 GB & 0.92 & 0.66 & 0.73\\ \hline
+	0.00001 & 30 & 0.2 & tokens, tf-idf weights & 8785 & 4 min & 3.1 GB & 0.86 & 0.74 & 0.77\\ \hline
+	\textbf{0.00001} & \textbf{30} & \textbf{1} & \textbf{tokens, tf-idf weights} & \textbf{8808} & \textbf{4 min} & \textbf{3.1 GB} & \textbf{0.87} & \textbf{0.74} & \textbf{0.78}\\ \hline
+	0.0001 & 40 & 0.2 & tokens, boolean weights & 7311 & 3 min& 3.1 GB & 0.91 & 0.60 & 0.68\\ \hline
+	0.0001 & 40 & 0.2 & tokens, tf-idf weights & 7311 & 3 min& 3.1 GB & 0.92 & 0.65 & 0.73\\ \hline
+	0.0001 & 40 & 0.2 & tokens, count-weights & 7311 & 3 min& 3.1 GB & 0.91 & 0.63 & 0.71\\ \hline
+	0.0001 & 20 & 1 & tokens, count-weights & 11420 & 5 min & 3.1 GB & 0.92 & 0.62 & 0.71\\ \hline
+	0.0001 & 0 & 1 & titles, count-weights & 22871 & 8 min & 3.1 GB & 0.92 & 0.61 & 0.69\\ \hline
+	0.0001 & 0 & 1 & titles, tf-idf weights & 22871 & 8 min & 3.1 GB & 0.92 & 0.62 & 0.70\\ \hline
 
 	\end{tabular}
 }
+
 \caption{Test Results for the SVM. All tests were done on a Machine with 32 GB ram and a high java heap size, thus java never deallocated memory. On another machine with less memory the memory consumption of the SVM code took only around 2 GB for most cases. The fact that this was tested on a stronger machine is also the reason why training of the SVM is faster than other approaches. The bold line shows what is used for submission and what is the current default.}
 \label{table:svmResults}
 \end{table}
 
-The SVM achieves very high precession, but poor recall indicating that it is too strict (not giving labels that should be there). Lowering the $\lambda$ parameter could solve this, but does not do so on in this case. This might indicate a non-linearly separable set. This would suggest the usage of kernels. The results from \cite{joachims_text_1998} strongly suggest that polynomial or RBF kernels work well. However due to performance issues and time constraints we did not consider this. As the precision was very high, we did not exclude industry codes from our prediction. The hope was to balance out precision and recall, which would lead to overall better F1-scores.
+It should be noted that we struggled with a bug in our SVM implementation until shortly before the deadline. Otherwise it would probably have been possible to even turn it further and maybe implement features like RBF kernels that perform very well in the literature. 
 
 \vspace{-2mm}
 \tiny{\printbibliography}
