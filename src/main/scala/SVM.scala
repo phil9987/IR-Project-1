@@ -9,7 +9,7 @@ import java.io._
   * Creates an SVM, with the given parameter.
   * @param lambda Lambda regulation parameter for the SVM algorithm.
   */
-class SVM(lambda: Double)
+class SVM(lambda: Double, r: BaseReader)
 {
   val logger = new Logger("SVM")
   logger.log("Reading Data")
@@ -20,7 +20,6 @@ class SVM(lambda: Double)
   //the reader used for the SVM
   //already incorporates the pre-processing
   //different choice of reader and its arguments results in different pre-processing
-  val r = new TitleReader(0,1,false)
   val codes = scala.collection.immutable.Set[String](r.codes.toList: _*)
 
   //Dictionary that saves a parameter vector (and thereby state of the SVM) for each code
@@ -100,12 +99,11 @@ class SVM(lambda: Double)
 
     //for each word in validation set, predict labels
     val validationResult = r.toBagOfWords("validation").map(dp =>
-                                                              {val a = thetas.map {
+                                                              {(thetas.map {
                                                                             case (code, theta) =>
                                                                               (code, Math.signum(theta.dot(
                                                                                 breeze.linalg.normalize(dp.x))))
-                                                                          }
-                                                                (a.filter(_._2 > 0).keys
+                                                                          }.filter(_._2 > 0).keys
                                                                 .toSet, dp.y.intersect(codes) )}).toList
 
     //calculate precession and recall for each document
@@ -120,6 +118,11 @@ class SVM(lambda: Double)
     logger.log("Average Precision: " + validationPrecisionRecall.map(_._1).sum / validationPrecisionRecall.length)
     logger.log("Average Recall: " + validationPrecisionRecall.map(_._2).sum / validationPrecisionRecall.length)
     logger.log("Average F1: " + validationF1.sum / validationF1.length)
+    List[Double](validationPrecisionRecall.map(_._1).sum / validationPrecisionRecall.length,
+                 validationPrecisionRecall.map(_
+                                                                                                                      ._2)
+      .sum / validationPrecisionRecall.length,
+      validationF1.sum / validationF1.length)
   }
 
   /**
@@ -149,10 +152,11 @@ class SVM(lambda: Double)
   */
 object SVM {
   def main(args: Array[String]): Unit = {
-    val svm = new SVM(1e-4)
+
+    val svm = new SVM(1e-5, new ReaderTfIdfWeighted(3,1,false))
     svm.train()
-    //svm.storeThetaToFile("values.csv")
-    svm.validate()
+    //svm.storeThetaToFile("ir-2016-1-project-7-svm.csv")
     svm.predict("ir-2016-1-project-7-svm.txt")
+
   }
 }
