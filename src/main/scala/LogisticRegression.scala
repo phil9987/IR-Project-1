@@ -9,15 +9,6 @@ import breeze.linalg.{SparseVector, Vector, DenseVector}
 object LogisticRegression{
 
   val logger = new Logger("LogisticRegression")
-
-  def main(args : Array[String]): Unit ={
-    train("train")
-
-    //adjust the country cutoff (performance better than the computed cutoff)
-    validate("validation")
-    predict("test")
-  }
-
   def logistic(x: Double): Double = {
     1.0 / (1.0 + Math.exp(-x))
   }
