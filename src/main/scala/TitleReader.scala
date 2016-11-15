@@ -249,7 +249,6 @@ class TitleReaderTfIdfWeighted(minOccurrence: Int = 1,
 class TfIDfTitleReader(topNDocs: Int, bias: Boolean = true) extends BaseTitleReader {
   private val logger = new Logger("TfIDfReader")
   logger.log(s"Starting TfIDfReader topN=$topNDocs bias=$bias")
-  val reducedDictionarySize = if (topNDocs != 0 ) topNDocs else dictionary.size
 
   logger.log("Finding top documents...")
   var top = wordCounts.toList

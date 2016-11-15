@@ -248,7 +248,6 @@ class ReaderTfIdfWeighted(minOccurrence: Int = 1,
 class TfIDfReader(topNDocs: Int, bias: Boolean = true) extends BaseReader {
   private val logger = new Logger("TfIDfReader")
   logger.log(s"Starting TfIDfReader topN=$topNDocs bias=$bias")
-  val reducedDictionarySize = if (topNDocs != 0 ) topNDocs else dictionary.size
 
   logger.log("Finding top documents...")
   var top = wordCounts.toList

@@ -20,14 +20,12 @@ object NaiveBayes{
 
   var topicThreshold:Double = -10.2
   var countryThreshold:Double = -9.4
-  //var industryThreshold:Double = -10.3
   var industryThreshold:Double = 0
   val logger = new Logger("NaiveBayes")
   var documentCategoryProbabilities = scala.collection.mutable.HashMap.empty[String,DenseVector[Double]].par
-  //val reader = new TitleReader(20,1,false)
+  //var documentCategoryProbabilitiesCountry = scala.collection.mutable.HashMap.empty[String,DenseVector[Double]].par
   val reader = new Reader(3, 0.2, false) //create reader with no bias
-  //val titleReader = new TitleReader(20,1,false)
-  //reader.pruneRareCodes(10)
+  val titleReader = new TitleReader(20,1,false)
   val topicCodes = Set[String](reader.codes.toList: _*).intersect(Codes.fromString("topic"))
   val industryCodes = Set[String](reader.codes.toList: _*).intersect(Codes.fromString("industry"))
   val countryCodes = Set[String](reader.codes.toList: _*).intersect(Codes.fromString("country"))
@@ -89,14 +87,23 @@ object NaiveBayes{
     * @return
     */
   def getValidationResult(): List[(Set[String],Set[String])] ={
-    reader.toBagOfWords("validation").map(dp =>
-      (documentCategoryProbabilities.map { case (code, wordCategoryProbabilities) =>
+    var topicCodesResult = reader.toBagOfWords("validation").map(dp =>
+      (documentCategoryProbabilities.filter(topicCodes contains _._1).map { case (code, wordCategoryProbabilities) =>
         (log(reader.getProbabilityOfCode(code)) + dp.x.dot(wordCategoryProbabilities) / sum(dp.x), code)}
         .toList.sortBy(_._1)
-          .filter{ case (score,code)=>
-            (score > topicThreshold && (topicCodes contains code)) || (score > industryThreshold && (industryCodes contains code)) || (score > countryThreshold && (countryCodes contains code))
-          }
-        .map(_._2).toSet, dp.y.intersect(topicCodes))).toList
+        .filter{ case (score,code)=> (score > topicThreshold)}
+        .map(_._2).toSet, dp.y)).toList
+
+    var countryCodesResult = titleReader.toBagOfWords("validation").map(dp =>
+      (documentCategoryProbabilities.filter(countryCodes contains _._1).map { case (code, wordCategoryProbabilities) =>
+        (log(reader.getProbabilityOfCode(code)) + dp.x.dot(wordCategoryProbabilities) / sum(dp.x), code)}
+        .toList.sortBy(_._1)
+        .filter{ case (score,code)=> (score > countryThreshold)}
+        .map(_._2).toSet)).toList
+
+    topicCodesResult.zip(countryCodesResult).map{ case ((topicSet, expectedSet), countrySet) =>
+      (topicSet.union(countrySet), expectedSet)}.toList
+
   }
 
   /**
@@ -114,7 +121,6 @@ object NaiveBayes{
       val validationF1 = validationPrecisionRecall
         .map { case (precision, recall) => 2 * precision * recall / (precision + recall + scala.Double.MinPositiveValue) }
       logger.log(s"Topic-Threshold = $topicThreshold, Country-Threshold = $countryThreshold, industryThreshold = 0.0, F1-Average= ${validationF1.sum / validationF1.length}")
-    }
   }
 
   /**
@@ -123,15 +129,23 @@ object NaiveBayes{
     */
   def predict(): Unit ={
     logger.log("Predicting codes for test-set")
-    val testResult = reader.toBagOfWords("test").map(dp => (dp.itemId, documentCategoryProbabilities.map { case (code, wordCategoryProbabilities) =>
-      (log(reader.getProbabilityOfCode(code)) + dp.x.dot(wordCategoryProbabilities) / sum(dp.x), code)}
-      .toList
-      .filter{ case (score, code) =>
-        (score > topicThreshold && (topicCodes contains code)) || (score > industryThreshold && (industryCodes contains code)) || (score > countryThreshold && (countryCodes contains code))}
-        .map(_._2).toSet))
-    logger.log("Prediction done. Saving model...")
+    val topicCodesTestResult = reader.toBagOfWords("test").map(dp => (dp.itemId, documentCategoryProbabilities.filter(topicCodes contains _._1).map { case (code, wordCategoryProbabilities) =>
+        (log(reader.getProbabilityOfCode(code)) + dp.x.dot(wordCategoryProbabilities) / sum(dp.x), code)}
+        .toList
+        .filter{ case (score, code) => (score > topicThreshold)}
+        .map(_._2).toSet)).toList
 
-    val out = new PrintWriter(new File("./src/main/resources/data/ir-project-2016-1-7-nb.txt"))
+    val countryCodesTestResult = titleReader.toBagOfWords("test").map(dp => (documentCategoryProbabilities.filter(countryCodes contains _._1).map { case (code, wordCategoryProbabilities) =>
+        (log(reader.getProbabilityOfCode(code)) + dp.x.dot(wordCategoryProbabilities) / sum(dp.x), code)}
+        .toList
+        .filter{ case (score, code) => (score > countryThreshold)}
+        .map(_._2).toSet)).toList
+
+    val testResult = topicCodesTestResult.zip(countryCodesTestResult).map{ case ((docId, topicSet), countrySet) =>
+      (docId, topicSet.union(countrySet))}.toList
+    logger.log("Prediction done. Saving test-output...")
+
+    val out = new PrintWriter(new File("./ir-project-2016-1-7-nb.txt"))
     testResult.map { case (docId, predictedCodes) => predictedCodes.toArray.mkString(docId + " ", " ", "\n") }.seq.foreach(out.write(_))
     out.close
   }
@@ -184,10 +198,10 @@ object NaiveBayes{
     //train()
     //saveDocumentCategoryProbabilitiesToFile("./src/main/resources/data/model/bayesPar_3_0.2_topicCodes_stemmed.csv")
     //loadDocumentCategoryProbabilitiesFromFile("./src/main/resources/data/model/bayesPar_3_0.2_topicCodes_stemmed.csv")
-    loadDocumentCategoryProbabilitiesFromFile("./src/main/resources/data/model/bayesPar_20_1.0_countryCodes_TitleReader.csv")
+    loadDocumentCategoryProbabilitiesFromFile("./src/main/resources/data/model/bayesPar_TopicCountryCombinedSubmission.csv")
 
-    validate()
-    //predict()
+    //validate()
+    predict()
 
   }
 }
