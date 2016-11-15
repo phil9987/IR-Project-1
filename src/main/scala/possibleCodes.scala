@@ -1,4 +1,3 @@
-import com.sun.xml.internal.ws.fault.CodeType
 
 object CodeTypes extends Enumeration {
   val Topic, Industry, Country, ALL = Value

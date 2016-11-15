@@ -2,7 +2,7 @@
   * Created by marc on 25/10/16.
   */
 
-import breeze.linalg.{SparseVector, Vector, DenseVector}
+import breeze.linalg.{SparseVector, DenseVector}
 import java.io._
 
 /**
@@ -13,6 +13,9 @@ class SVM(lambda: Double)
 {
   val logger = new Logger("SVM")
   logger.log("Reading Data")
+
+  //use this epislon to avoid division by 0
+  val eps = 1e-5
 
   //the reader used for the SVM
   //already incorporates the pre-processing
@@ -53,8 +56,8 @@ class SVM(lambda: Double)
   def storeThetaToFile(filename:String): Unit =
   {
         val pw = new PrintWriter(new File(filename))
-        thetas.map { case (code, theta) => theta.toArray.mkString(code + "\t", "\t", "\n") }.seq.foreach(pw.write(_))
-        pw.close
+        thetas.map { case (code, theta) => theta.toArray.mkString(code + "\t", "\t", "\n") }.seq.foreach(pw.write)
+        pw.close()
   }
 
   /**
@@ -102,17 +105,17 @@ class SVM(lambda: Double)
                                                                               (Math.signum(theta.dot(
                                                                                 breeze.linalg.normalize(dp.x))),
                                                                               code)
-                                                                          }.filter(_._1 > 0).map(_._2)
+                                                                          }.filter(_._1 > 0).values
                                                                 .toSet, dp.y.intersect(codes) )).toList
 
     //calculate precession and recall for each document
     val validationPrecisionRecall = validationResult.map { case (actual, expected) =>
-       (actual.intersect(expected).size.toDouble / (actual.size + scala.Double.MinPositiveValue),
-        actual.intersect(expected).size.toDouble / (expected.size + scala.Double.MinPositiveValue))
+       (actual.intersect(expected).size.toDouble / (actual.size + eps),
+        actual.intersect(expected).size.toDouble / (expected.size + eps))
                                                          }
     //calculate F1 score for each document
     val validationF1 = validationPrecisionRecall
-      .map { case (precision, recall) => 2 * precision * recall / (precision + recall + scala.Double.MinPositiveValue) }
+      .map { case (precision, recall) => 2 * precision * recall / (precision + recall + eps) }
 
     logger.log("Average Precision: " + validationPrecisionRecall.map(_._1).sum / validationPrecisionRecall.length)
     logger.log("Average Recall: " + validationPrecisionRecall.map(_._2).sum / validationPrecisionRecall.length)
@@ -128,13 +131,13 @@ class SVM(lambda: Double)
     //for each word in
     val testResult = r.toBagOfWords("test").map(dp =>  thetas.map { case (code, theta) => (Math.signum
                                                               (theta.dot(breeze.linalg.normalize(dp.x))), code)
-                                                                          }.filter(_._1 > 0).map(_._2)
+                                                                          }.filter(_._1 > 0).values
                                                                 .toSet.mkString(dp.itemId.toString + " ", " ", "\n"))
       .toList
 
     val pw = new PrintWriter(new File(filename))
     testResult.foreach(pw.write)
-    pw.close
+    pw.close()
 
   }
 
@@ -146,9 +149,9 @@ class SVM(lambda: Double)
   */
 object SVM {
   def main(args: Array[String]): Unit = {
-    val svm = new SVM(1e-4);
+    val svm = new SVM(1e-4)
     svm.train()
-    svm.storeThetaToFile("values.csv")
+    //svm.storeThetaToFile("values.csv")
     svm.validate()
     svm.predict("ir-2016-1-project-7-svm.txt")
   }

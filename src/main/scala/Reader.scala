@@ -1,8 +1,9 @@
 import java.io.File
+
 import com.github.aztek.porterstemmer.PorterStemmer
 import breeze.linalg.{DenseVector, SparseVector, Vector, VectorBuilder}
 import ch.ethz.dal.tinyir.io.ReutersRCVStream
-import ch.ethz.dal.tinyir.processing.XMLDocument
+import ch.ethz.dal.tinyir.processing.{Tokenizer, XMLDocument}
 import ch.ethz.dal.tinyir.processing.StopWords.stopWords
 
 /**
@@ -30,8 +31,8 @@ abstract class BaseReader()
   //fast version of sort().take(n)
   //based on
   //https://stackoverflow.com/questions/8274726/top-n-items-in-a-list-including-duplicates
-  def topNs(xs: TraversableOnce[Tuple2[String,Int]], n: Int) = {
-    var ss = List[Tuple2[String,Int]]()
+  def topNs(xs: TraversableOnce[(String,Int)], n: Int) = {
+    var ss = List[(String,Int)]()
     var max = Int.MinValue
     var len = 0
     xs foreach { e =>
@@ -57,7 +58,7 @@ abstract class BaseReader()
   /**
     * Translate a token to its stemmed base word.
     * Uses a cache (HashMap) in order not to duplicate calculations.
-    * @param token
+    * @param token The token to be stemmed
     * @return stemmed word.
     */
   def cachedStem(token: String) = {
@@ -66,9 +67,9 @@ abstract class BaseReader()
   }
 
   /**
-    * Given a token, transform it to a word.
-    * @param token
-    * @return word
+    * Given a token, transform it to a word. Currently only stemming.
+    * @param token The token to be transformed.
+    * @return word THe processed word.
     */
   def tokenToWord(token: String) = cachedStem(token)
 
@@ -78,7 +79,7 @@ abstract class BaseReader()
   /**
     * Filters words.
     * Current implementation removes stopwords and words not made up from letters and '-'.
-    * @param word
+    * @param word The word to be filtered.
     * @return Boolean indicating whether to remove the word or not.
     */
   def filterWords(word: String) = !stopWords.contains(word) && pattern.matcher(word).matches()
@@ -161,11 +162,11 @@ abstract class BaseReader()
 class Reader(minOccurrence: Int = 1,
              maxOccurrenceRate: Double = 0.2,
              bias: Boolean = true) extends BaseReader {
-  private val logger = new Logger("Reader")
+  protected val logger = new Logger("Reader")
   logger.log(s"Starting Reader minOccurrence=$minOccurrence, maxOccurrenceRate=$maxOccurrenceRate, bias=$bias")
 
   logger.log("Filtering out words...")
-  private val acceptableCount = maxOccurrenceRate * docCount
+  protected val acceptableCount = maxOccurrenceRate * docCount
   val originalDictionarySize = wordCounts.size
   //compute dictionary (remove unusable words)
   val dictionary = wordCounts.filter(x => x._2 <= acceptableCount && x._2 >= minOccurrence)
@@ -189,7 +190,7 @@ class Reader(minOccurrence: Int = 1,
         .filter(_._1 >= 0).sortBy(_._1)
         .foreach { case (index, count) => v.add(index, count) }
       if (bias) v.add(reducedDictionarySize, 1) //bias
-      DataPoint(doc.ID, v.toSparseVector(true, true), doc.codes)
+      DataPoint(doc.ID, v.toSparseVector(alreadySorted = true, keysAlreadyUnique = true), doc.codes)
     })
   }
 }
@@ -207,7 +208,7 @@ class Reader(minOccurrence: Int = 1,
 class ReaderTfIdfWeighted(minOccurrence: Int = 1,
              maxOccurrenceRate: Double = 0.2,
              bias: Boolean = true) extends BaseReader {
-  private val logger = new Logger("Reader")
+  protected val logger = new Logger("Reader")
   logger.log(s"Starting Reader minOccurrence=$minOccurrence, maxOccurrenceRate=$maxOccurrenceRate, bias=$bias")
 
   logger.log("Calculating idf")
@@ -215,7 +216,7 @@ class ReaderTfIdfWeighted(minOccurrence: Int = 1,
     .toDouble
   ))).toMap.seq
   logger.log("Filtering out words...")
-  private val acceptableCount = maxOccurrenceRate * docCount
+  protected val acceptableCount = maxOccurrenceRate * docCount
   val originalDictionarySize = wordCounts.size
   //compute dictionary (remove unusable words)
   val dictionary = wordCounts.filter(x => x._2 <= acceptableCount && x._2 >= minOccurrence)
@@ -239,12 +240,18 @@ class ReaderTfIdfWeighted(minOccurrence: Int = 1,
         .filter(_._1 >= 0).sortBy(_._1)
         .foreach { case (index, count) => v.add(index, count) }
       if (bias) v.add(reducedDictionarySize, 1) //bias
-      DataPoint(doc.ID, breeze.linalg.normalize(v.toSparseVector(true, true)), doc.codes)
+      DataPoint(doc.ID, breeze.linalg.normalize(v.toSparseVector(alreadySorted = true, keysAlreadyUnique = true)), doc.codes)
     })
   }
 }
 
-
+/**
+  * Ranks the words according to their idf, keeping only the top N.
+  * Computes the bag-of-words representations for documents based on those
+  * and weights them using tf-idf.
+  * @param topNDocs The number of words to remain in the dictionary (sorted by idf).
+  * @param bias     Indicates whether to include an extra 1 in bag-of-words vectors
+  */
 class TfIDfReader(topNDocs: Int, bias: Boolean = true) extends BaseReader {
   private val logger = new Logger("TfIDfReader")
   logger.log(s"Starting TfIDfReader topN=$topNDocs bias=$bias")
@@ -252,7 +259,7 @@ class TfIDfReader(topNDocs: Int, bias: Boolean = true) extends BaseReader {
   logger.log("Finding top documents...")
   var top = wordCounts.toList
   if (topNDocs > 0)
-    top =  topNs(wordCounts.toList,topNDocs);
+    top =  topNs(wordCounts.toList,topNDocs)
   logger.log("Calculating idf")
   val idf = top.par.map(x => (x._1, Math.log( docCount.toDouble/x._2
     .toDouble
@@ -277,69 +284,91 @@ class TfIDfReader(topNDocs: Int, bias: Boolean = true) extends BaseReader {
              }.sortBy(_._1)
         .foreach { case (index, count) => v.add(index, count) }
       if (bias) v.add(outLength - 1, 1) //bias
-      val bagOfWordsVector = v.toSparseVector(true, true)
+      val bagOfWordsVector = v.toSparseVector(alreadySorted = true, keysAlreadyUnique = true)
       DataPoint(doc.ID, breeze.linalg.normalize(bagOfWordsVector), doc.codes.intersect(codes))
     })
   }
 }
 
 
-class PerClassTfIdfReader(topNDocs: Int, bias: Boolean = true) extends BaseReader()
-{
-  val logger = new Logger("PerClassTfIdfReader")
-  val perClassWordCount = scala.collection.mutable.HashMap[String, scala.collection.mutable.HashMap[String, Int]]()
-  val reducedDictionarySize = topNDocs
-  val outLength = topNDocs + (if (bias) 1 else 0)
-
+/**
+  * Trait that changes the BaseReader only to use tokens from the Title of the document.
+  */
+trait TitleReaderSetup extends BaseReader {
   protected override def init() = {
-    //we don't want standard init
-  }
-  //instead we use setup
-
-  private def setup() = {
-    logger.log("Setting up PerClassTfIdfReader")
-     val r = new ReutersRCVStream(new File("./src/main/resources/data/train").getCanonicalPath, ".zip")
+    val r = new ReutersRCVStream(new File("./src/main/resources/data/train").getCanonicalPath, ".zip")
     docCount = r.length
     for (doc <- r.stream) {
-      logger.log("Counting documents", "count", 10000)
-      doc.tokens.distinct.map(tokenToWord).filter(filterWords).distinct.foreach(
-       x => {
-         wordCounts(x) = 1 + wordCounts.getOrElse(x, 0)
-         doc.codes.foreach(c => {
-           val table = perClassWordCount.getOrElse(c, scala.collection.mutable.HashMap[String, Int]())
-           table(x) = 1 + table.getOrElse(x, 0)
-           perClassWordCount += c -> table
-         })
-       }
-      )
+      Tokenizer.tokenize(doc.title).distinct.map(tokenToWord).filter(filterWords).distinct.foreach(x => wordCounts(x) = 1 + wordCounts.getOrElse(x, 0))
       doc.codes.foreach(codes += _)
       doc.codes.foreach(x => numDocsPerCode(x) = 1 + numDocsPerCode.getOrElse(x,0))
     }
   }
-  setup()
+}
 
 
-  def toBagOfWords(code: String, input: Stream[XMLDocument]):
-  Stream[DataPoint]
-  = {
-    logger.log("toBagOfWords")
-    logger.log(s"finding top $topNDocs for code $code")
-    var wc : scala.collection.mutable.HashMap[String, Int] = null
-    perClassWordCount.synchronized {
-                                     wc = perClassWordCount(code);
-                                   }
-    var top = wc.toList
-    if (topNDocs > 0)
-      top =  topNs(wc.toList,topNDocs)
-    logger.log("Calculating idf, dictionary")
-    val idf = top.par.map(x => (x._1, Math.log( docCount.toDouble/x._2
-      .toDouble
-    ))).toMap.seq
-    val dictionary = idf.keys.toList.sorted.zipWithIndex.toMap
+//Same as Reader, but only using titles
+class TitleReader(minOccurrence: Int = 1,
+                  maxOccurrenceRate: Double = 0.2,
+                  bias: Boolean = true) extends Reader(minOccurrence, maxOccurrenceRate, bias) with TitleReaderSetup{
 
+  /**
+    * Load the datapoints for a given stream of documents.
+    *
+    * @param input The documents.
+    * @return Stream of datapoints.
+    */
+  override def toBagOfWords(input: Stream[XMLDocument]): Stream[DataPoint] = {
     input.map(doc => {
       val v = new VectorBuilder[Double](outLength)
-      val actualWords = doc.tokens.map(tokenToWord).filter(filterWords).filter(dictionary.contains)
+      Tokenizer.tokenize(doc.title).map(tokenToWord).filter(filterWords).groupBy(identity).mapValues(_.size).toList
+        .map { case (key, count) => if (dictionary.contains(key)) (dictionary(key), count) else (-1, 0) }
+        .filter(_._1 >= 0).sortBy(_._1)
+        .foreach { case (index, count) => v.add(index, count) }
+      if (bias) v.add(reducedDictionarySize, 1) //bias
+      DataPoint(doc.ID, v.toSparseVector(alreadySorted = true, keysAlreadyUnique = true), doc.codes)
+    })
+  }
+}
+
+//Same as ReaderTfIdfWeighted, but only using titles
+class TitleReaderTfIdfWeighted(minOccurrence: Int = 1,
+                               maxOccurrenceRate: Double = 0.2,
+                               bias: Boolean = true) extends ReaderTfIdfWeighted(minOccurrence, maxOccurrenceRate,
+                                                                                 bias) with TitleReaderSetup{
+  /**
+    * Load the datapoints for a given stream of documents.
+    *
+    * @param input The documents.
+    * @return Stream of datapoints.
+    */
+  override def toBagOfWords(input: Stream[XMLDocument]): Stream[DataPoint] = {
+    input.map(doc => {
+      val v = new VectorBuilder[Double](outLength)
+      Tokenizer.tokenize(doc.title).map(tokenToWord).filter(filterWords).groupBy(identity).mapValues(_.size).toList
+        .map { case (key, count) => if (dictionary.contains(key) && idf.contains(key)) (dictionary(key), count.toDouble*idf(key)) else (-1, 0.0) }
+        .filter(_._1 >= 0).sortBy(_._1)
+        .foreach { case (index, count) => v.add(index, count) }
+      if (bias) v.add(reducedDictionarySize, 1) //bias
+      DataPoint(doc.ID,  v.toSparseVector(alreadySorted = true, keysAlreadyUnique = true), doc.codes)
+    })
+  }
+}
+
+//Same as TfIDfTitleReader, but only using titles
+class TfIDfTitleReader(topNDocs: Int, bias: Boolean = true) extends TfIDfReader(topNDocs, bias)  with TitleReaderSetup{
+  private val logger = new Logger("TfIDfReader")
+  logger.log(s"Starting TfIDfReader topN=$topNDocs bias=$bias")
+
+  /**
+    * Load the datapoints for a given stream of documents.
+    * @param input The documents.
+    * @return Stream of datapoints.
+    */
+  override   def toBagOfWords(input: Stream[XMLDocument]): Stream[DataPoint] = {
+    input.map(doc => {
+      val v = new VectorBuilder[Double](outLength)
+      val actualWords = Tokenizer.tokenize(doc.title).map(tokenToWord).filter(filterWords).filter(dictionary.contains)
       actualWords.groupBy(identity).mapValues(_.size).toList
         .filter(x => dictionary.contains(x._1))
         .map {
@@ -347,14 +376,8 @@ class PerClassTfIdfReader(topNDocs: Int, bias: Boolean = true) extends BaseReade
              }.sortBy(_._1)
         .foreach { case (index, count) => v.add(index, count) }
       if (bias) v.add(outLength - 1, 1) //bias
-      val bagOfWordsVector = v.toSparseVector(true, true)
+      val bagOfWordsVector = v.toSparseVector(alreadySorted = true, keysAlreadyUnique = true)
       DataPoint(doc.ID, breeze.linalg.normalize(bagOfWordsVector), doc.codes.intersect(codes))
     })
   }
-
-  def  toBagOfWords(code :String, collectionName: String): Stream[DataPoint] = {
-    toBagOfWords(code, new ReutersRCVStream(
-      new File("./src/main/resources/data/" + collectionName).getCanonicalPath, ".zip").stream)
-  }
-
 }
