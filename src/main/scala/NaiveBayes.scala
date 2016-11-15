@@ -123,6 +123,7 @@ class NaiveBayes(topicThreshold: Double, countryThreshold:Double){
         bowStream = titleReader.toBagOfWords("train"),
         vocabSize = titleReader.reducedDictionarySize)
     }
+    // merge documentCategoryProbabilitiesCountry into documentCategoryProbabilities
     documentCategoryProbabilitiesCountry.foreach(dp => documentCategoryProbabilities += dp)
   }
 
@@ -145,6 +146,7 @@ class NaiveBayes(topicThreshold: Double, countryThreshold:Double){
         .filter{ case (score,code)=> (score > countryThreshold)}
         .map(_._2).toSet)).toList
 
+    // return: merged results of country- and topic-codes
     topicCodesResult.zip(countryCodesResult).map{ case ((topicSet, expectedSet), countrySet) =>
       (topicSet.union(countrySet), expectedSet)}.toList
   }
@@ -208,8 +210,8 @@ object NaiveBayes {
     val nb = new NaiveBayes(-10.2, -9.4)
     nb.train()
     nb.saveDocumentCategoryProbabilitiesToFile("NBCompleteModel")
-    //nb.loadDocumentCategoryProbabilitiesFromFile("./src/main/resources/data/model/bayesPar_TopicCountryCombinedSubmission.csv")
+    //nb.loadDocumentCategoryProbabilitiesFromFile("NBCompleteModel")
     nb.validate()
-    nb.predict("ir-2016-1-project-7-nb.txt")
+    //nb.predict("ir-2016-1-project-7-nb.txt")
   }
 }
